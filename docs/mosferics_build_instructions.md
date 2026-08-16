@@ -442,8 +442,8 @@ Build the schemas in dependency order, one migration per schema:
 2. `supplier`
 3. `catalog` (taxonomy, brands, collections, ranges, products, variants, metadata, images, documents, compliance, relations) — `documents` must precede `compliance`; `compliance.evidence_document_id` is a real FK to it
 4. `link`
-5. `pricing`
-6. `ops`
+5. `ops` — **swapped ahead of `pricing`**: `pricing.variant_prices.channel_id` is a real FK to `ops.channels`, so the other order cannot be built without deferring a constraint. Nothing in `ops` depends on `pricing`, so the swap costs nothing
+6. `pricing`
 7. `stock` — defer if your stocked list is short
 
 **When building `link.py`, confirm the auto-created links.** Migration 0007 requires `is_preferred` to imply `status = 'confirmed'`, so the auto-created 1:1 link every single-source item gets must be written as `status = 'confirmed'`. It does not have to be signed by hand: migration 0008 added a trigger that fills `confirmed_by` and `confirmed_at` whenever a row is confirmed without a confirmer, so the pipeline can either write `confirmed_by = 'pipeline'` explicitly (which is preserved) or leave both null and sign as `mos_pipeline`. The one remaining trap is writing `confirmed_by` without `confirmed_at` — that fails the pairing constraint, because the signing trigger only fires when `confirmed_by` is null. Leaving `status` at its `proposed` default is the other trap, and the quiet one: it silently drops `is_preferred` on every single-source variant. See the `is_preferred` section of `mosferics_data_model_v3.md` for the full table.
