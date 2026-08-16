@@ -446,6 +446,10 @@ Build the schemas in dependency order, one migration per schema:
 6. `ops`
 7. `stock` — defer if your stocked list is short
 
+**When building `link.py`, sign the auto-confirmed links.** Migration 0007 requires `is_preferred` to imply `status = 'confirmed'`, so the auto-created 1:1 link every single-source item gets must be written as `status = 'confirmed'`, `confirmed_by = 'pipeline'`, `confirmed_at =` the run timestamp — **both audit columns, every auto-confirmed link**. Writing one alone fails the pairing constraint; writing neither and leaving `status` at its `proposed` default silently drops `is_preferred` on every single-source variant. See the `is_preferred` section of `mosferics_data_model_v3.md` for the full table.
+
+**When building `ops.review_queue`, add the orphaned-preferred-link check.** Migration 0007 made `link.is_preferred` imply `status = 'confirmed'`, and the trigger demotes silently rather than raising — so rejecting or un-confirming the preferred source leaves the variant with no preferred link and nothing says so. The queue must surface **any variant with at least one confirmed link but zero preferred links** as an open item (`entity_type = 'variant_link'`). Sourcing re-picks a winner on its next run, so the item normally clears itself; one that survives across runs means Sourcing found no viable candidate, which is a human problem and otherwise shows up only as a line that quietly cannot be sold. See the `is_preferred` section of `mosferics_data_model_v3.md`.
+
 When building `ops`, create `ops.delivery_config` and seed it with the v1 row — delivery days Tue/Wed/Thu, cutoff 12:00, timezone Europe/London, handling 1 day, empty holiday calendar. Do this now even though the engine that reads it is Stage 8, so a change to delivery days later is a data edit, not a migration — the same up-front pattern as `stock.locations` and `ops.channels`. The table is config only; no logic here.
 
 **Set up Alembic once**, pointing it at the DB through `.env` so no credentials are hardcoded:

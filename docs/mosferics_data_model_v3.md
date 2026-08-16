@@ -88,10 +88,27 @@ Every supplier product gets a link — single-source items get an auto-created 1
 
 **`is_preferred` is where preferred source lives.** The Sourcing engine weighs cost and lead time across a variant's links and marks the winner. A single-source variant's sole 1:1 link is preferred by default. It is deliberately the link, not a pointer column on the product or variant, so it can never name a supplier the variant isn't actually linked to — integrity is automatic, not something the builder has to remember to enforce.
 
+**Preferred implies confirmed.** Tightened in migration 0007: `is_preferred` requires `status = 'confirmed'`, not merely "not rejected". Sourcing can therefore never be pointed at a match no human has agreed to. Two consequences follow, and both are real work rather than bookkeeping:
+
+- **The auto-created 1:1 link must be written as `confirmed`, with both audit columns set.** Single-source items are preferred by default, so `link.py` has to insert them with `status = 'confirmed'`, `confirmed_by = 'pipeline'` and `confirmed_at` set to the run timestamp. **Both columns, every auto-confirmed link** — the `(confirmed_by IS NULL) = (confirmed_at IS NULL)` pairing constraint admits no half-written audit trail. The three ways to get it wrong fail differently, and only one of them is loud:
+
+  | What `link.py` writes | What happens |
+  |---|---|
+  | `confirmed_by` alone, or `confirmed_at` alone | The insert **fails** the pairing check. Loud, and the good case |
+  | Neither column, `status` left at its `proposed` default | The insert **succeeds** and the trigger silently drops `is_preferred`. Every single-source variant ends up with no preferred source |
+  | `status = 'confirmed'`, both columns null | The insert **succeeds** and stays preferred, recording a confirmation nobody made |
+
+  Recording an auto-created 1:1 link as confirmed is consistent with the rule above — it is never something a human is asked about, so confirmed is the honest state rather than a shortcut. But it is the pipeline asserting a confirmation, which is exactly why it must sign it.
+- **A confirmed variant can now hold zero preferred links.** Rejecting or un-confirming the winner demotes it in the same write, and nothing promotes a replacement. See the review-queue note below.
+
 Two mechanisms keep it consistent:
 
-- **Partial unique index** `UNIQUE (variant_id) WHERE is_preferred` — enforces *at most one* preferred link per variant. ("At least one" is a business rule the Sourcing engine and the single-source default guarantee, not a schema constraint.)
-- **Sibling-clearing trigger** — a `BEFORE INSERT OR UPDATE` trigger on `variant_links` that, whenever a row is set `is_preferred = true`, sets every other link for the same `variant_id` back to `false` in the same statement. This makes changing the preferred source a single write ("mark this one") instead of an unset-old-then-set-new dance, and it means the reviewer can just tick one link in NocoDB without hitting the unique-index error — the trigger clears the previous winner for him. It also sidesteps the deferred-constraint timing wrinkle the raw two-row update would otherwise need.
+- **Partial unique index** `UNIQUE (variant_id) WHERE is_preferred` — enforces *at most one* preferred link per variant. ("At least one" is a business rule the Sourcing engine and the single-source default guarantee, not a schema constraint — a variant exists before its first link does, so the schema could never assert it.)
+- **A single `BEFORE INSERT OR UPDATE` trigger**, `link.enforce_preferred_link()`, which runs only on a row trying to be preferred and sequences two steps explicitly. *Demote*: if the row is not `confirmed`, drop `is_preferred` rather than raising — so rejecting or un-confirming the winner is one write. *Clear*: otherwise set every other link for the same `variant_id` back to `false`. Together this makes changing the preferred source a single write ("mark this one") instead of an unset-old-then-set-new dance, and it means the reviewer can just tick one link in NocoDB without hitting the unique-index error. It also sidesteps the deferred-constraint timing wrinkle the raw two-row update would otherwise need.
+
+  Migration 0006 split these across two trigger functions and relied on Postgres firing `BEFORE` row triggers in name order. That worked, but the correctness lived in a naming coincidence; 0007 folded them into one function so the order is stated.
+
+**Review-queue note — for whoever builds `ops.review_queue`.** Because the demote step is silent, a variant whose links are all confirmed can end up with no preferred link at all, and nothing currently reports it. When `ops.review_queue` is built, add a check that surfaces **any variant holding at least one confirmed link but zero preferred links** as an open queue item (`entity_type = 'variant_link'`). The Sourcing engine re-picks a winner on its next run, so in the normal case the queue item resolves itself — but a variant that sits in that state across runs means Sourcing has no viable candidate, and that is exactly the case a human needs to see rather than a silently unsellable line.
 
 If sourcing ever needs to differ **per channel** (dropship a supplier for events, stock a different one for trade — mirroring `fulfilment_mode` and pricing, which are already per-channel), neither the flag nor a variant pointer survives: replace it with a dedicated `sourcing_preference (variant_id, channel_id, supplier_product_id)` table. Not in scope now — flagged as the one change that would force a rethink.
 
