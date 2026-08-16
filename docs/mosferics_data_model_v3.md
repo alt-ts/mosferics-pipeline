@@ -117,7 +117,7 @@ If sourcing ever needs to differ **per channel** (dropship a supplier for events
 
 ### Mosferics SKU
 
-Format `MOS-<DEPT>-<NNNNNNN>`, e.g. `MOS-GLA-0000123`. Variant-level, not product-level — a plate in three colours is three SKUs.
+Format `MOS-<DEPT>-<NNNNNNN>-<C>`, e.g. `MOS-GLA-0000123-6`. Variant-level, not product-level — a plate in three colours is three SKUs.
 
 | Rule | Reason |
 |---|---|
@@ -129,7 +129,14 @@ Format `MOS-<DEPT>-<NNNNNNN>`, e.g. `MOS-GLA-0000123`. Variant-level, not produc
 | Retired SKUs are never reused | Reuse repoints historic orders at a different product |
 | Prefix is frozen at birth, not authoritative | Reclassifying a product leaves a stale prefix. This is acceptable and must not be "fixed" |
 
-Optional mod-11 or Luhn check character catches transposition on manual warehouse entry. Cheap to add now, awkward to retrofit.
+**Check digit — decided, mod-11.** Taken in migration 0005. Luhn was rejected because it misses the 09↔90 transposition, which is the error the digit exists to catch. Weights 8..2 left to right over the 7-digit body, check = (11 − (sum mod 11)) mod 11; every single-digit substitution and every transposition, adjacent or not, is detected.
+
+| Decision | Reason |
+|---|---|
+| Covers the 7-digit body only, never the `<DEPT>` prefix | The body has to stay self-checking after the prefix is stripped, which is already assumed above |
+| Bodies whose check digit would be 10 are skipped, not rendered `X` | Keeps the SKU numeric after the prefix — numeric keypad entry, spreadsheets, scanners. Costs 1 sequence value in 11, and gaps are already normal because retired SKUs are never reused |
+| Allocated by `catalog.next_mosferics_sku(dept)`, not in the pipeline | The skip rule and the format then exist in exactly one place. Raises on a department prefix no level-1 node carries |
+| Enforced by a CHECK calling `catalog.sku_check_digit()` | A SKU that fails the digit cannot be inserted at all, rather than being caught by convention |
 
 **Level 1 of the taxonomy is frozen once SKU allocation begins.** Everything below it stays freely restructurable.
 

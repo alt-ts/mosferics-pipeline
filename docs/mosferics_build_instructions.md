@@ -11,6 +11,7 @@ Stages 0 and 9 are paper exercises. Everything else is build. Stage 0 is not opt
 | Decision | Needed by | Status |
 |---|---|---|
 | VM provider, region, size | Stage 1 | Open |
+| SKU check digit | Stage 4 | **Done — mod-11, `MOS-<DEPT>-<NNNNNNN>-<C>`** |
 | Taxonomy tree v1 | Stage 6 | **Done — v1 created, Level 1 frozen** |
 | Controlled vocabularies + alias lists | Stage 6 | **Done — Colour/Material/Finish/Shape v1 created** |
 | Materiality threshold %, margin floor % | Stage 7 | **Done — 5% threshold, 15% floor** |
@@ -31,6 +32,8 @@ Stages 0 and 9 are paper exercises. Everything else is build. Stage 0 is not opt
 **Stocked SKU list:** deferred. Write it out by hand when convenient. If it's under about fifty lines, the `stock` schema is a later-phase concern and can be deferred entirely — that single list determines how much of the stock model v1 needs. It does not gate the Artis or BBP pilots.
 
 **Compliance evidence policy — decided:** with Declaration of Conformity dropped, the **supplier data sheet** is the accepted evidence type for a CE/CA/food-contact claim. The `catalog.compliance` rule stands: every row still needs a linked evidence record — now the data sheet — no evidence means no row and the storefront renders the absence as "not stated". Set `stated_by = supplier`, attach the data sheet as the evidence document, and AI still never proposes values here.
+
+**SKU check digit — decided:** mod-11 over the seven-digit body, giving `MOS-<DEPT>-<NNNNNNN>-<C>`. Luhn was rejected because it misses the 09↔90 transposition, which is the error the digit exists to catch. Built in migration 0005 as `catalog.sku_check_digit()` plus `catalog.next_mosferics_sku()`, and enforced by a CHECK constraint on `catalog.variants` — see the SKU section of `mosferics_data_model_v3.md` for the full rule table. Level 1 of the taxonomy must be frozen before allocation begins, as it already is.
 
 **Knife age restriction — decided:** all knives carry an 18+ restriction. Apply `age_restricted` as a blanket claim driven by the knife taxonomy nodes, not per-SKU. This one is a policy rule rather than a manufacturer statement, so it does not require a supplier data sheet to be set — but it does mean the knife nodes must be identifiable in the taxonomy so the rule can be scoped to them.
 
@@ -404,8 +407,10 @@ Read the relevant section before implementing anything in that area.
 10. Variant grouping never invents combinations. Sparse matrices are normal and
     must be preserved exactly as the supplier data supports.
 11. This is a PRODUCTION database. Never DELETE, TRUNCATE, DROP or bulk-UPDATE
-    live data without explicit human approval. `raw` is append-only — never
-    UPDATE or DELETE its rows; it is the audit trail.
+    live data without explicit human approval. Never edit the payload in
+    `raw.import_rows` — it is the audit trail, and proving what a supplier
+    actually sent depends on it. `raw.import_batches.status` is operational
+    state and may be updated as a batch progresses.
 12. Test every migration on a scratch database (up, down, up) before running
     `alembic upgrade head` against the live database.
 13. Never write to the live Shopify store without the human catalogue-sync gate.
@@ -435,7 +440,7 @@ Build the schemas in dependency order, one migration per schema:
 
 1. `raw`
 2. `supplier`
-3. `catalog` (taxonomy, brands, collections, ranges, products, variants, metadata, images, compliance, relations, documents)
+3. `catalog` (taxonomy, brands, collections, ranges, products, variants, metadata, images, documents, compliance, relations) — `documents` must precede `compliance`; `compliance.evidence_document_id` is a real FK to it
 4. `link`
 5. `pricing`
 6. `ops`

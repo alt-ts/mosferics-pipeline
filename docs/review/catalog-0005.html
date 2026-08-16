@@ -1,0 +1,1356 @@
+<title>Catalog Schema 0005</title>
+<style>
+  :root {
+    --ground: #F4F6F7;
+    --surface: #FFFFFF;
+    --raised: #EAEFF0;
+    --ink: #12181B;
+    --muted: #57686D;
+    --rule: #D8E0E2;
+    --accent: #0E5C68;
+    --accent-soft: #DBEBEE;
+    --ok: #2C6A4F;
+    --ok-soft: #DDEBE3;
+    --open: #8A5A00;
+    --open-soft: #F5EBD8;
+    --code-bg: #101819;
+    --code-ink: #D3E0E2;
+    --code-kw: #7FC8D4;
+    --code-type: #CBBA88;
+    --code-comment: #6B8388;
+    --serif: ui-serif, "Iowan Old Style", "Source Serif 4", Georgia, serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0E1315;
+      --surface: #151C1F;
+      --raised: #1C2528;
+      --ink: #E2E9EA;
+      --muted: #91A4A9;
+      --rule: #253134;
+      --accent: #58BFCC;
+      --accent-soft: #163237;
+      --ok: #74C29A;
+      --ok-soft: #162B22;
+      --open: #DBA94A;
+      --open-soft: #2E2612;
+      --code-bg: #0A1012;
+      --code-ink: #D3E0E2;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0E1315;
+    --surface: #151C1F;
+    --raised: #1C2528;
+    --ink: #E2E9EA;
+    --muted: #91A4A9;
+    --rule: #253134;
+    --accent: #58BFCC;
+    --accent-soft: #163237;
+    --ok: #74C29A;
+    --ok-soft: #162B22;
+    --open: #DBA94A;
+    --open-soft: #2E2612;
+    --code-bg: #0A1012;
+    --code-ink: #D3E0E2;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4rem;
+  }
+
+  .prose { max-width: 40rem; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(2.4rem, 6vw, 3.4rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+    text-wrap: balance;
+    margin: 0.6rem 0 0;
+  }
+
+  h1 .mono {
+    font-family: var(--mono);
+    font-size: 0.82em;
+    letter-spacing: -0.03em;
+  }
+
+  h2 {
+    font-family: var(--serif);
+    font-size: 1.65rem;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    font-weight: 600;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-size: 1rem;
+    line-height: 1.35;
+    font-weight: 650;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  p { margin: 0; }
+  .lede { color: var(--muted); font-size: 1.05rem; margin-top: 1rem; }
+
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .head-note {
+    color: var(--muted);
+    font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .mono { font-family: var(--mono); font-size: 0.9em; }
+
+  /* ---------- migration chain: order is real information here ---------- */
+  .chain {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0;
+    margin: 0;
+  }
+
+  .chain li {
+    flex: 1 1 8rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 0.7rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .chain .rev {
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+
+  .chain .what {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .chain li.now {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+
+  .chain li.now .rev { color: var(--accent); font-weight: 700; }
+  .chain li.now .what { color: var(--ink); }
+
+  /* ---------- verification tiles ---------- */
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .tile {
+    background: var(--surface);
+    padding: 1.15rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .tile .figure {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+
+  .tile .label {
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: var(--muted);
+  }
+
+  .tile .verdict {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ok);
+  }
+
+  /* ---------- judgement calls ---------- */
+  .calls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    gap: 0.75rem;
+  }
+
+  .call {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 1.15rem 1.2rem 1.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .call p { font-size: 0.88rem; color: var(--muted); }
+
+  .chip {
+    align-self: flex-start;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 2px;
+  }
+
+  .call.open { border-left: 2px solid var(--open); }
+  .call.open .chip { background: var(--open-soft); color: var(--open); }
+  .call.record .chip { background: var(--raised); color: var(--muted); }
+
+  /* ---------- table matrix ---------- */
+  .scroll {
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    background: var(--surface);
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.87rem;
+  }
+
+  th, td {
+    text-align: right;
+    padding: 0.5rem 0.9rem;
+    border-bottom: 1px solid var(--rule);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  th {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  th:first-child, td.name { text-align: left; }
+  td.name { color: var(--ink); }
+  tr.total td { border-bottom: none; color: var(--muted); font-weight: 600; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ---------- DDL panel ---------- */
+  .ddl {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .ddl-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid #23302f;
+    background: #0B1214;
+  }
+
+  .ddl-bar .cmd {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: #8FA6AA;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .ddl-bar .count {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: #6B8388;
+  }
+
+  .ddl pre {
+    margin: 0;
+    padding: 1.1rem 1rem 1.4rem;
+    overflow-x: auto;
+    max-height: 44rem;
+    overflow-y: auto;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    line-height: 1.65;
+    color: var(--code-ink);
+    tab-size: 4;
+  }
+
+  .ddl .k { color: var(--code-kw); }
+  .ddl .t { color: var(--code-type); }
+  .ddl .c { color: var(--code-comment); font-style: italic; }
+
+  /* ---------- next ---------- */
+  .next {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .next li {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 0.8rem 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.7rem;
+    align-items: baseline;
+    font-size: 0.9rem;
+  }
+
+  .next .step {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--accent);
+    min-width: 4.5rem;
+  }
+
+  .next .detail { color: var(--muted); font-size: 0.85rem; flex: 1 1 14rem; }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 0;
+  }
+
+  a { color: var(--accent); }
+  a:focus-visible, .ddl pre:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 40rem) {
+    .wrap { padding: 2.5rem 1rem 4rem; gap: 3rem; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Migration 0005 &middot; applied to live 16 Aug 2026</div>
+    <h1>The <span class="mono">catalog</span> schema, as Postgres now holds it</h1>
+    <p class="lede">Eleven tables, two functions and one sequence &mdash; what
+      Mosferics sells. This is the rendered DDL from the live database, not the
+      Alembic Python that produced it, plus every choice made in this migration
+      that the data model did not dictate.</p>
+  </header>
+
+  <section>
+    <h2>Where the chain stands</h2>
+    <ol class="chain">
+      <li class=""><span class="rev">0001</span><span class="what">raw</span></li>
+<li class=""><span class="rev">0002</span><span class="what">supplier</span></li>
+<li class=""><span class="rev">0003</span><span class="what">description_status</span></li>
+<li class=""><span class="rev">0004</span><span class="what">raw immutability</span></li>
+<li class="now"><span class="rev">0005</span><span class="what">catalog</span></li>
+    </ol>
+    <p class="head-note">Live and scratch are both at <span class="mono">0005</span>.
+      The <span class="mono">catalog</span> schema was empty when this dump was
+      taken and is empty now &mdash; every decision below is still free to
+      revisit.</p>
+  </section>
+
+  <section>
+    <h2>What was proven before it went near live</h2>
+    <div class="tiles">
+      <div class="tile">
+        <div class="figure">2&times;</div>
+        <div class="label">down / up cycles of 0005 on the scratch database</div>
+        <div class="verdict">clean</div>
+      </div>
+      <div class="tile">
+        <div class="figure">5</div>
+        <div class="label">migrations torn down to base and rebuilt from empty</div>
+        <div class="verdict">clean</div>
+      </div>
+      <div class="tile">
+        <div class="figure">6,300,000</div>
+        <div class="label">single-digit substitutions tested against the check digit</div>
+        <div class="verdict">0 undetected</div>
+      </div>
+      <div class="tile">
+        <div class="figure">354,000</div>
+        <div class="label">transpositions tested, adjacent and jump, all 21 position pairs</div>
+        <div class="verdict">0 undetected</div>
+      </div>
+      <div class="tile">
+        <div class="figure">1 in 11</div>
+        <div class="label">sequence values skipped, where the check digit would be 10</div>
+        <div class="verdict">as designed</div>
+      </div>
+      <div class="tile">
+        <div class="figure">4</div>
+        <div class="label">malformed SKUs offered to the constraints &mdash; wrong digit, old format, short body, letter</div>
+        <div class="verdict">all rejected</div>
+      </div>
+    </div>
+    <p class="head-note">Each rejection names the constraint it failed rather
+      than raising a cast error, which took a second pass to get right: Postgres
+      does not promise to evaluate two CHECK constraints in any order, so the
+      check-digit constraint had to abstain on input the format constraint would
+      have caught.</p>
+  </section>
+
+  <section>
+    <h2>Judgement calls that want your eye</h2>
+    <p class="prose head-note">New in this pass. The data model called the check
+      digit optional and left the algorithm open, so these are choices rather
+      than transcription.</p>
+    <div class="calls">
+      <article class="call open"><div class="chip">needs your call</div><h3>Mod-11, not Luhn</h3><p>The data model offered either. Luhn does not detect a 09&#8596;90 transposition, which is exactly the error a warehouse keypad produces. Mod-11 with weights 8..2 catches every single-digit substitution and every transposition, adjacent or not.</p></article>
+<article class="call open"><div class="chip">needs your call</div><h3>The digit covers the body, not the prefix</h3><p><span class="mono">sku_check_digit()</span> reads the seven digits alone. The data model says the numeric part must stand on its own because the prefix will get stripped somewhere eventually &mdash; so a digit that depended on <span class="mono">GLA</span> would stop validating at exactly that moment.</p></article>
+<article class="call open"><div class="chip">needs your call</div><h3>Unrepresentable digits skip, they do not become X</h3><p>One body in eleven wants a check value of 10. ISBN-style <span class="mono">X</span> would keep every sequence value but put a letter in the numeric tail. Skipping keeps the SKU numeric after the prefix &mdash; keypads, spreadsheets, scanners &mdash; and costs only sequence values, in a scheme where gaps are already normal because retired SKUs are never reused.</p></article>
+<article class="call open"><div class="chip">needs your call</div><h3>Allocation lives in the database</h3><p><span class="mono">catalog.next_mosferics_sku(dept)</span> does the nextval loop, the skip and the formatting, so the rule exists once rather than once here and once in Python. It raises on a department prefix that no level-1 taxonomy node carries.</p></article>
+<article class="call open"><div class="chip">needs your call</div><h3>The 7-digit ceiling is a RAISE, not a sequence MAXVALUE</h3><p><span class="mono">mosferics_sku_seq</span> is still declared <span class="mono">AS bigint</span> while the body holds seven digits. The allocator raises past 9,999,999 with a message that names the problem; capping the sequence instead would give a blunter error. Ten million against a sixty-thousand catalogue makes this theoretical either way.</p></article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Judgement calls for the record</h2>
+    <p class="prose head-note">Already inside 0005 before this pass, and not
+      dictated by <span class="mono">mosferics_data_model_v3.md</span>. Listed
+      because this is the first time the schema has been rendered for review.</p>
+    <div class="calls">
+      <article class="call record"><div class="chip">for the record</div><h3>documents is created before compliance</h3><p><span class="mono">compliance.evidence_document_id</span> is a real foreign key to it, so the build doc's listed order cannot be executed as written.</p></article>
+<article class="call record"><div class="chip">for the record</div><h3>variants.ean is indexed but not unique</h3><p>Two variants may legitimately hold the same EAN in the window between import and a confirmed multi-source merge. A unique constraint would reject the second supplier's row before review could happen.</p></article>
+<article class="call record"><div class="chip">for the record</div><h3>uq_taxonomy_sibling_slug is NULLS NOT DISTINCT</h3><p>Level-1 nodes all share <span class="mono">parent_id IS NULL</span>. Under default NULL semantics the sibling-slug rule would silently not bind them &mdash; the one level where a collision matters most, since these are the nodes that carry SKU prefixes.</p></article>
+<article class="call record"><div class="chip">for the record</div><h3>sku_prefix uniqueness is a partial index</h3><p><span class="mono">WHERE sku_prefix IS NOT NULL</span>, so the many nodes below level 1 do not compete for a single NULL slot.</p></article>
+<article class="call record"><div class="chip">for the record</div><h3>documents.attach_id is polymorphic</h3><p>Its target table depends on <span class="mono">attach_level</span>, so no single SQL foreign key can express it. A CHECK constrains the level; the pipeline enforces the reference.</p></article>
+<article class="call record"><div class="chip">for the record</div><h3>age_restricted is the only evidence exemption</h3><p>Hard rule 2 is structural here &mdash; <span class="mono">ck_compliance_evidence_required</span> means no evidence, no row. The data model defines the 18+ knife rule as policy rather than a manufacturer statement, so it has no data sheet to point at and is named explicitly in the constraint.</p></article>
+<article class="call record"><div class="chip">for the record</div><h3>Two review vocabularies, deliberately different</h3><p><span class="mono">product_metadata.status</span> is constrained to pending_review / verified / rejected and defaults to pending_review, per hard rule 3. <span class="mono">products.description_status</span> stays free text, following migration 0003 &mdash; that vocabulary is not settled yet.</p></article>
+    </div>
+  </section>
+
+  <section>
+    <h2>The eleven tables</h2>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Table</th><th>Columns</th><th>Check</th>
+            <th>FK</th><th>Indexes</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono name">brands</td><td>5</td><td>0</td><td>0</td><td>2</td></tr>
+<tr><td class="mono name">collections</td><td>6</td><td>0</td><td>1</td><td>2</td></tr>
+<tr><td class="mono name">compliance</td><td>7</td><td>3</td><td>2</td><td>2</td></tr>
+<tr><td class="mono name">documents</td><td>9</td><td>4</td><td>1</td><td>2</td></tr>
+<tr><td class="mono name">images</td><td>7</td><td>0</td><td>1</td><td>2</td></tr>
+<tr><td class="mono name">product_metadata</td><td>9</td><td>2</td><td>1</td><td>2</td></tr>
+<tr><td class="mono name">product_relations</td><td>4</td><td>2</td><td>2</td><td>2</td></tr>
+<tr><td class="mono name">products</td><td>15</td><td>2</td><td>4</td><td>6</td></tr>
+<tr><td class="mono name">ranges</td><td>4</td><td>0</td><td>1</td><td>2</td></tr>
+<tr><td class="mono name">taxonomy</td><td>7</td><td>2</td><td>1</td><td>5</td></tr>
+<tr><td class="mono name">variants</td><td>9</td><td>3</td><td>1</td><td>4</td></tr>
+<tr class="total"><td class="mono name">11 tables</td><td>82</td><td>18</td><td>15</td><td>31</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="head-note"><span class="mono">products</span> and
+      <span class="mono">taxonomy</span> carry the index weight because they are
+      what everything else points at. Index counts include the primary key and
+      each unique constraint.</p>
+  </section>
+
+  <section>
+    <h2>Full DDL</h2>
+    <div class="ddl">
+      <div class="ddl-bar">
+        <div class="cmd">pg_dump -s -n catalog -h localhost -U mos_owner mosferics</div>
+        <div class="count">780 lines</div>
+      </div>
+      <pre tabindex="0"><span class="c">--</span>
+<span class="c">-- PostgreSQL database dump</span>
+<span class="c">--</span>
+
+
+<span class="c">-- Dumped from database version 16.14 (Ubuntu 16.14-1.pgdg22.04+1)</span>
+<span class="c">-- Dumped by pg_dump version 16.14 (Ubuntu 16.14-1.pgdg22.04+1)</span>
+
+<span class="k">SET</span> statement_timeout = 0;
+<span class="k">SET</span> lock_timeout = 0;
+<span class="k">SET</span> idle_in_transaction_session_timeout = 0;
+<span class="k">SET</span> client_encoding = &#x27;UTF8&#x27;;
+<span class="k">SET</span> standard_conforming_strings = on;
+<span class="k">SELECT</span> pg_catalog.set_config(&#x27;search_path&#x27;, &#x27;&#x27;, false);
+<span class="k">SET</span> check_function_bodies = false;
+<span class="k">SET</span> xmloption = content;
+<span class="k">SET</span> client_min_messages = warning;
+<span class="k">SET</span> row_security = off;
+
+<span class="c">--</span>
+<span class="c">-- Name: catalog; Type: SCHEMA; Schema: -; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">SCHEMA</span> catalog;
+
+
+<span class="k">ALTER SCHEMA</span> catalog <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: next_mosferics_sku(text); Type: FUNCTION; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">FUNCTION</span> catalog.next_mosferics_sku(p_dept <span class="t">text</span>) <span class="k">RETURNS</span> <span class="t">text</span>
+    <span class="k">LANGUAGE</span> plpgsql
+    AS $$
+        <span class="k">DECLARE</span>
+            v_seq   <span class="t">bigint</span>;
+            v_body  <span class="t">text</span>;
+            v_check <span class="t">integer</span>;
+        <span class="k">BEGIN</span>
+            <span class="k">IF NOT EXISTS</span> (
+                <span class="k">SELECT</span> 1 <span class="k">FROM</span> catalog.taxonomy
+                <span class="k">WHERE</span> sku_prefix = p_dept AND parent_id IS NULL
+            ) <span class="k">THEN</span>
+                <span class="k">RAISE EXCEPTION</span>
+                    &#x27;unknown department prefix %: no level-1 taxonomy node carries it&#x27;,
+                    p_dept;
+            <span class="k">END</span> <span class="k">IF</span>;
+
+            <span class="k">LOOP</span>
+                v_seq := nextval(&#x27;catalog.mosferics_sku_seq&#x27;);
+                <span class="k">IF</span> v_seq &gt; 9999999 <span class="k">THEN</span>
+                    <span class="k">RAISE EXCEPTION</span>
+                        &#x27;mosferics_sku_seq has outgrown the 7-digit body at %&#x27;, v_seq;
+                <span class="k">END</span> <span class="k">IF</span>;
+                v_body  := lpad(v_seq::<span class="t">text</span>, 7, &#x27;0&#x27;);
+                v_check := catalog.sku_check_digit(v_body);
+                <span class="k">EXIT WHEN</span> v_check &lt; 10;
+            <span class="k">END</span> <span class="k">LOOP</span>;
+
+            RETURN &#x27;MOS-&#x27; || p_dept || &#x27;-&#x27; || v_body || &#x27;-&#x27; || v_check::<span class="t">text</span>;
+        <span class="k">END</span>;
+        $$;
+
+
+<span class="k">ALTER FUNCTION</span> catalog.next_mosferics_sku(p_dept <span class="t">text</span>) <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: sku_check_digit(text); Type: FUNCTION; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">FUNCTION</span> catalog.sku_check_digit(seq_part <span class="t">text</span>) <span class="k">RETURNS</span> <span class="t">integer</span>
+    <span class="k">LANGUAGE</span> sql <span class="k">IMMUTABLE</span> <span class="k">STRICT</span>
+    AS $_$
+            <span class="k">SELECT</span> (11 - (SUM(substr(seq_part, 8 - i, 1)::<span class="t">integer</span> * (i + 1))::<span class="t">integer</span> % 11)) % 11
+            <span class="k">FROM</span> generate_series(1, 7) AS i
+            <span class="k">WHERE</span> seq_part ~ &#x27;^[0-9]{7}$&#x27;
+        $_$;
+
+
+<span class="k">ALTER FUNCTION</span> catalog.sku_check_digit(seq_part <span class="t">text</span>) <span class="k">OWNER TO</span> mos_owner;
+
+<span class="k">SET</span> default_tablespace = &#x27;&#x27;;
+
+<span class="k">SET</span> default_table_access_method = <span class="t">heap</span>;
+
+<span class="c">--</span>
+<span class="c">-- Name: brands; Type: TABLE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> catalog.brands (
+    brand_id <span class="t">integer</span> <span class="k">NOT NULL</span>,
+    name <span class="t">text</span> <span class="k">NOT NULL</span>,
+    slug <span class="t">text</span> <span class="k">NOT NULL</span>,
+    logo_s3_key <span class="t">text</span>,
+    description <span class="t">text</span>
+);
+
+
+<span class="k">ALTER TABLE</span> catalog.brands <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: brands_brand_id_seq; Type: SEQUENCE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE</span> catalog.brands <span class="k">ALTER COLUMN</span> brand_id <span class="k">ADD</span> <span class="k">GENERATED BY DEFAULT AS IDENTITY</span> (
+    <span class="k">SEQUENCE</span> NAME catalog.brands_brand_id_seq
+    <span class="k">START WITH</span> 1
+    <span class="k">INCREMENT BY</span> 1
+    <span class="k">NO MINVALUE</span>
+    <span class="k">NO MAXVALUE</span>
+    <span class="k">CACHE</span> 1
+);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: collections; Type: TABLE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> catalog.collections (
+    collection_id <span class="t">integer</span> <span class="k">NOT NULL</span>,
+    brand_id <span class="t">integer</span> <span class="k">NOT NULL</span>,
+    name <span class="t">text</span> <span class="k">NOT NULL</span>,
+    slug <span class="t">text</span> <span class="k">NOT NULL</span>,
+    banner_s3_key <span class="t">text</span>,
+    description <span class="t">text</span>
+);
+
+
+<span class="k">ALTER TABLE</span> catalog.collections <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: collections_collection_id_seq; Type: SEQUENCE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE</span> catalog.collections <span class="k">ALTER COLUMN</span> collection_id <span class="k">ADD</span> <span class="k">GENERATED BY DEFAULT AS IDENTITY</span> (
+    <span class="k">SEQUENCE</span> NAME catalog.collections_collection_id_seq
+    <span class="k">START WITH</span> 1
+    <span class="k">INCREMENT BY</span> 1
+    <span class="k">NO MINVALUE</span>
+    <span class="k">NO MAXVALUE</span>
+    <span class="k">CACHE</span> 1
+);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: compliance; Type: TABLE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> catalog.compliance (
+    product_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    claim <span class="t">text</span> <span class="k">NOT NULL</span>,
+    value <span class="t">text</span> <span class="k">NOT NULL</span>,
+    evidence_document_id <span class="t">bigint</span>,
+    stated_by <span class="t">text</span>,
+    recorded_by <span class="t">text</span> <span class="k">NOT NULL</span>,
+    recorded_at <span class="t">timestamp with time zone</span> <span class="k">DEFAULT</span> now() <span class="k">NOT NULL</span>,
+    <span class="k">CONSTRAINT</span> ck_compliance_claim <span class="k">CHECK</span> ((claim = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;ce_mark&#x27;::<span class="t">text</span>, &#x27;ca_mark&#x27;::<span class="t">text</span>, &#x27;reach&#x27;::<span class="t">text</span>, &#x27;rohs&#x27;::<span class="t">text</span>, &#x27;food_contact&#x27;::<span class="t">text</span>, &#x27;coshh_required&#x27;::<span class="t">text</span>, &#x27;age_restricted&#x27;::<span class="t">text</span>]))),
+    <span class="k">CONSTRAINT</span> ck_compliance_evidence_required <span class="k">CHECK</span> (((evidence_document_id IS <span class="k">NOT NULL</span>) OR (claim = &#x27;age_restricted&#x27;::<span class="t">text</span>))),
+    <span class="k">CONSTRAINT</span> ck_compliance_stated_by <span class="k">CHECK</span> (((stated_by IS NULL) OR (stated_by = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;supplier&#x27;::<span class="t">text</span>, &#x27;manufacturer&#x27;::<span class="t">text</span>]))))
+);
+
+
+<span class="k">ALTER TABLE</span> catalog.compliance <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: documents; Type: TABLE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> catalog.documents (
+    document_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    attach_level <span class="t">text</span> <span class="k">NOT NULL</span>,
+    attach_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    doc_type <span class="t">text</span> <span class="k">NOT NULL</span>,
+    s3_key <span class="t">text</span> <span class="k">NOT NULL</span>,
+    version <span class="t">text</span>,
+    issued_date <span class="t">date</span>,
+    expires_date <span class="t">date</span>,
+    superseded_by <span class="t">bigint</span>,
+    <span class="k">CONSTRAINT</span> ck_documents_attach_level <span class="k">CHECK</span> ((attach_level = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;product&#x27;::<span class="t">text</span>, &#x27;range&#x27;::<span class="t">text</span>, &#x27;collection&#x27;::<span class="t">text</span>, &#x27;brand&#x27;::<span class="t">text</span>]))),
+    <span class="k">CONSTRAINT</span> ck_documents_date_range <span class="k">CHECK</span> (((expires_date IS NULL) OR (issued_date IS NULL) OR (expires_date &gt;= issued_date))),
+    <span class="k">CONSTRAINT</span> ck_documents_doc_type <span class="k">CHECK</span> ((doc_type = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;care_guide&#x27;::<span class="t">text</span>, &#x27;warranty&#x27;::<span class="t">text</span>, &#x27;brochure&#x27;::<span class="t">text</span>, &#x27;spec_sheet&#x27;::<span class="t">text</span>, &#x27;coshh&#x27;::<span class="t">text</span>, &#x27;declaration_of_conformity&#x27;::<span class="t">text</span>]))),
+    <span class="k">CONSTRAINT</span> ck_documents_not_self_superseding <span class="k">CHECK</span> (((superseded_by IS NULL) OR (superseded_by &lt;&gt; document_id)))
+);
+
+
+<span class="k">ALTER TABLE</span> catalog.documents <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: documents_document_id_seq; Type: SEQUENCE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE</span> catalog.documents <span class="k">ALTER COLUMN</span> document_id <span class="k">ADD</span> <span class="k">GENERATED BY DEFAULT AS IDENTITY</span> (
+    <span class="k">SEQUENCE</span> NAME catalog.documents_document_id_seq
+    <span class="k">START WITH</span> 1
+    <span class="k">INCREMENT BY</span> 1
+    <span class="k">NO MINVALUE</span>
+    <span class="k">NO MAXVALUE</span>
+    <span class="k">CACHE</span> 1
+);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: images; Type: TABLE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> catalog.images (
+    image_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    product_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    s3_key <span class="t">text</span>,
+    url <span class="t">text</span>,
+    &quot;position&quot; <span class="t">integer</span> <span class="k">DEFAULT</span> 0 <span class="k">NOT NULL</span>,
+    source <span class="t">text</span>,
+    status <span class="t">text</span>
+);
+
+
+<span class="k">ALTER TABLE</span> catalog.images <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: images_image_id_seq; Type: SEQUENCE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE</span> catalog.images <span class="k">ALTER COLUMN</span> image_id <span class="k">ADD</span> <span class="k">GENERATED BY DEFAULT AS IDENTITY</span> (
+    <span class="k">SEQUENCE</span> NAME catalog.images_image_id_seq
+    <span class="k">START WITH</span> 1
+    <span class="k">INCREMENT BY</span> 1
+    <span class="k">NO MINVALUE</span>
+    <span class="k">NO MAXVALUE</span>
+    <span class="k">CACHE</span> 1
+);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: mosferics_sku_seq; Type: SEQUENCE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">SEQUENCE</span> catalog.mosferics_sku_seq
+    <span class="k">START WITH</span> 1
+    <span class="k">INCREMENT BY</span> 1
+    <span class="k">NO MINVALUE</span>
+    <span class="k">NO MAXVALUE</span>
+    <span class="k">CACHE</span> 1;
+
+
+<span class="k">ALTER SEQUENCE</span> catalog.mosferics_sku_seq <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: product_metadata; Type: TABLE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> catalog.product_metadata (
+    product_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    key <span class="t">text</span> <span class="k">NOT NULL</span>,
+    value <span class="t">text</span>,
+    canonical_value <span class="t">numeric</span>,
+    unit <span class="t">text</span>,
+    source <span class="t">text</span>,
+    status <span class="t">text</span> <span class="k">DEFAULT</span> &#x27;pending_review&#x27;::<span class="t">text</span> <span class="k">NOT NULL</span>,
+    verified_by <span class="t">text</span>,
+    verified_at <span class="t">timestamp with time zone</span>,
+    <span class="k">CONSTRAINT</span> ck_product_metadata_source <span class="k">CHECK</span> (((source IS NULL) OR (source = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;supplier&#x27;::<span class="t">text</span>, &#x27;ai&#x27;::<span class="t">text</span>, &#x27;manual&#x27;::<span class="t">text</span>])))),
+    <span class="k">CONSTRAINT</span> ck_product_metadata_status <span class="k">CHECK</span> ((status = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;pending_review&#x27;::<span class="t">text</span>, &#x27;verified&#x27;::<span class="t">text</span>, &#x27;rejected&#x27;::<span class="t">text</span>])))
+);
+
+
+<span class="k">ALTER TABLE</span> catalog.product_metadata <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: product_relations; Type: TABLE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> catalog.product_relations (
+    from_product_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    to_product_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    relation_type <span class="t">text</span> <span class="k">NOT NULL</span>,
+    auto_derived <span class="t">boolean</span> <span class="k">DEFAULT</span> false <span class="k">NOT NULL</span>,
+    <span class="k">CONSTRAINT</span> ck_product_relations_not_self <span class="k">CHECK</span> ((from_product_id &lt;&gt; to_product_id)),
+    <span class="k">CONSTRAINT</span> ck_product_relations_type <span class="k">CHECK</span> ((relation_type = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;matching_cup&#x27;::<span class="t">text</span>, &#x27;matching_saucer&#x27;::<span class="t">text</span>, &#x27;matching_plate&#x27;::<span class="t">text</span>, &#x27;matching_bowl&#x27;::<span class="t">text</span>, &#x27;matching_lid&#x27;::<span class="t">text</span>, &#x27;matching_teapot&#x27;::<span class="t">text</span>, &#x27;spare_part&#x27;::<span class="t">text</span>, &#x27;accessory&#x27;::<span class="t">text</span>])))
+);
+
+
+<span class="k">ALTER TABLE</span> catalog.product_relations <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: products; Type: TABLE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> catalog.products (
+    product_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    title <span class="t">text</span> <span class="k">NOT NULL</span>,
+    handle <span class="t">text</span> <span class="k">NOT NULL</span>,
+    category_id <span class="t">integer</span> <span class="k">NOT NULL</span>,
+    base_unit <span class="t">text</span> <span class="k">NOT NULL</span>,
+    brand_id <span class="t">integer</span>,
+    collection_id <span class="t">integer</span>,
+    range_id <span class="t">integer</span>,
+    description <span class="t">text</span>,
+    description_source <span class="t">text</span>,
+    description_status <span class="t">text</span>,
+    seo_title <span class="t">text</span>,
+    seo_description <span class="t">text</span>,
+    is_multi_source <span class="t">boolean</span> <span class="k">DEFAULT</span> false <span class="k">NOT NULL</span>,
+    status <span class="t">text</span> <span class="k">DEFAULT</span> &#x27;active&#x27;::<span class="t">text</span> <span class="k">NOT NULL</span>,
+    <span class="k">CONSTRAINT</span> ck_products_description_source <span class="k">CHECK</span> (((description_source IS NULL) OR (description_source = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;supplier&#x27;::<span class="t">text</span>, &#x27;ai&#x27;::<span class="t">text</span>, &#x27;manual&#x27;::<span class="t">text</span>])))),
+    <span class="k">CONSTRAINT</span> ck_products_status <span class="k">CHECK</span> ((status = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;active&#x27;::<span class="t">text</span>, &#x27;discontinued&#x27;::<span class="t">text</span>])))
+);
+
+
+<span class="k">ALTER TABLE</span> catalog.products <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: products_product_id_seq; Type: SEQUENCE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE</span> catalog.products <span class="k">ALTER COLUMN</span> product_id <span class="k">ADD</span> <span class="k">GENERATED BY DEFAULT AS IDENTITY</span> (
+    <span class="k">SEQUENCE</span> NAME catalog.products_product_id_seq
+    <span class="k">START WITH</span> 1
+    <span class="k">INCREMENT BY</span> 1
+    <span class="k">NO MINVALUE</span>
+    <span class="k">NO MAXVALUE</span>
+    <span class="k">CACHE</span> 1
+);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ranges; Type: TABLE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> catalog.ranges (
+    range_id <span class="t">integer</span> <span class="k">NOT NULL</span>,
+    collection_id <span class="t">integer</span> <span class="k">NOT NULL</span>,
+    name <span class="t">text</span> <span class="k">NOT NULL</span>,
+    slug <span class="t">text</span> <span class="k">NOT NULL</span>
+);
+
+
+<span class="k">ALTER TABLE</span> catalog.ranges <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: ranges_range_id_seq; Type: SEQUENCE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE</span> catalog.ranges <span class="k">ALTER COLUMN</span> range_id <span class="k">ADD</span> <span class="k">GENERATED BY DEFAULT AS IDENTITY</span> (
+    <span class="k">SEQUENCE</span> NAME catalog.ranges_range_id_seq
+    <span class="k">START WITH</span> 1
+    <span class="k">INCREMENT BY</span> 1
+    <span class="k">NO MINVALUE</span>
+    <span class="k">NO MAXVALUE</span>
+    <span class="k">CACHE</span> 1
+);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: taxonomy; Type: TABLE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> catalog.taxonomy (
+    category_id <span class="t">integer</span> <span class="k">NOT NULL</span>,
+    parent_id <span class="t">integer</span>,
+    name <span class="t">text</span> <span class="k">NOT NULL</span>,
+    slug <span class="t">text</span> <span class="k">NOT NULL</span>,
+    path <span class="t">text</span> <span class="k">NOT NULL</span>,
+    variant_axes <span class="t">text</span>[],
+    sku_prefix <span class="t">text</span>,
+    <span class="k">CONSTRAINT</span> ck_taxonomy_sku_prefix_format <span class="k">CHECK</span> (((sku_prefix IS NULL) OR (sku_prefix ~ &#x27;^[A-Z]{3}$&#x27;::<span class="t">text</span>))),
+    <span class="k">CONSTRAINT</span> ck_taxonomy_sku_prefix_level_1_only <span class="k">CHECK</span> (((sku_prefix IS NULL) OR (parent_id IS NULL)))
+);
+
+
+<span class="k">ALTER TABLE</span> catalog.taxonomy <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: taxonomy_category_id_seq; Type: SEQUENCE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE</span> catalog.taxonomy <span class="k">ALTER COLUMN</span> category_id <span class="k">ADD</span> <span class="k">GENERATED BY DEFAULT AS IDENTITY</span> (
+    <span class="k">SEQUENCE</span> NAME catalog.taxonomy_category_id_seq
+    <span class="k">START WITH</span> 1
+    <span class="k">INCREMENT BY</span> 1
+    <span class="k">NO MINVALUE</span>
+    <span class="k">NO MAXVALUE</span>
+    <span class="k">CACHE</span> 1
+);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: variants; Type: TABLE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> catalog.variants (
+    variant_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    product_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    variant_title <span class="t">text</span>,
+    mosferics_sku <span class="t">text</span> <span class="k">NOT NULL</span>,
+    ean <span class="t">text</span>,
+    pack_size <span class="t">integer</span>,
+    base_units_per_variant <span class="t">numeric</span>(12,4),
+    weight_g <span class="t">integer</span>,
+    dims_mm <span class="t">jsonb</span>,
+    <span class="k">CONSTRAINT</span> ck_variants_pack_size_positive <span class="k">CHECK</span> (((pack_size IS NULL) OR (pack_size &gt; 0))),
+    <span class="k">CONSTRAINT</span> ck_variants_sku_check_digit <span class="k">CHECK</span> ((catalog.sku_check_digit(split_part(mosferics_sku, &#x27;-&#x27;::<span class="t">text</span>, 3)) = (&quot;substring&quot;(split_part(mosferics_sku, &#x27;-&#x27;::<span class="t">text</span>, 4), &#x27;^[0-9]$&#x27;::<span class="t">text</span>))::<span class="t">integer</span>)),
+    <span class="k">CONSTRAINT</span> ck_variants_sku_format <span class="k">CHECK</span> ((mosferics_sku ~ &#x27;^MOS-[A-Z]{3}-[0-9]{7}-[0-9]$&#x27;::<span class="t">text</span>))
+);
+
+
+<span class="k">ALTER TABLE</span> catalog.variants <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: variants_variant_id_seq; Type: SEQUENCE; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE</span> catalog.variants <span class="k">ALTER COLUMN</span> variant_id <span class="k">ADD</span> <span class="k">GENERATED BY DEFAULT AS IDENTITY</span> (
+    <span class="k">SEQUENCE</span> NAME catalog.variants_variant_id_seq
+    <span class="k">START WITH</span> 1
+    <span class="k">INCREMENT BY</span> 1
+    <span class="k">NO MINVALUE</span>
+    <span class="k">NO MAXVALUE</span>
+    <span class="k">CACHE</span> 1
+);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: brands brands_pkey; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.brands
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> brands_pkey <span class="k">PRIMARY KEY</span> (brand_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: brands brands_slug_key; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.brands
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> brands_slug_key <span class="k">UNIQUE</span> (slug);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: collections collections_pkey; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.collections
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> collections_pkey <span class="k">PRIMARY KEY</span> (collection_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: documents documents_pkey; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.documents
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> documents_pkey <span class="k">PRIMARY KEY</span> (document_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: images images_pkey; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.images
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> images_pkey <span class="k">PRIMARY KEY</span> (image_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: compliance pk_compliance; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.compliance
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> pk_compliance <span class="k">PRIMARY KEY</span> (product_id, claim);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: product_metadata pk_product_metadata; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.product_metadata
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> pk_product_metadata <span class="k">PRIMARY KEY</span> (product_id, key);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: product_relations pk_product_relations; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.product_relations
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> pk_product_relations <span class="k">PRIMARY KEY</span> (from_product_id, to_product_id, relation_type);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: products products_handle_key; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.products
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> products_handle_key <span class="k">UNIQUE</span> (handle);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: products products_pkey; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.products
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> products_pkey <span class="k">PRIMARY KEY</span> (product_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ranges ranges_pkey; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.ranges
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> ranges_pkey <span class="k">PRIMARY KEY</span> (range_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: taxonomy taxonomy_pkey; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.taxonomy
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> taxonomy_pkey <span class="k">PRIMARY KEY</span> (category_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: collections uq_collections_brand_slug; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.collections
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> uq_collections_brand_slug <span class="k">UNIQUE</span> (brand_id, slug);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ranges uq_ranges_collection_slug; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.ranges
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> uq_ranges_collection_slug <span class="k">UNIQUE</span> (collection_id, slug);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: taxonomy uq_taxonomy_path; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.taxonomy
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> uq_taxonomy_path <span class="k">UNIQUE</span> (path);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: taxonomy uq_taxonomy_sibling_slug; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.taxonomy
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> uq_taxonomy_sibling_slug <span class="k">UNIQUE</span> <span class="k">NULLS NOT DISTINCT</span> (parent_id, slug);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: variants variants_mosferics_sku_key; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.variants
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> variants_mosferics_sku_key <span class="k">UNIQUE</span> (mosferics_sku);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: variants variants_pkey; Type: CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.variants
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> variants_pkey <span class="k">PRIMARY KEY</span> (variant_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_compliance_evidence; Type: INDEX; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_compliance_evidence ON catalog.compliance <span class="k">USING btree</span> (evidence_document_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_documents_attach; Type: INDEX; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_documents_attach ON catalog.documents <span class="k">USING btree</span> (attach_level, attach_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_images_product_position; Type: INDEX; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_images_product_position ON catalog.images <span class="k">USING btree</span> (product_id, &quot;position&quot;);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_product_metadata_status_key; Type: INDEX; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_product_metadata_status_key ON catalog.product_metadata <span class="k">USING btree</span> (status, key);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_product_relations_to; Type: INDEX; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_product_relations_to ON catalog.product_relations <span class="k">USING btree</span> (to_product_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_products_brand; Type: INDEX; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_products_brand ON catalog.products <span class="k">USING btree</span> (brand_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_products_category; Type: INDEX; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_products_category ON catalog.products <span class="k">USING btree</span> (category_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_products_range; Type: INDEX; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_products_range ON catalog.products <span class="k">USING btree</span> (range_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_products_status; Type: INDEX; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_products_status ON catalog.products <span class="k">USING btree</span> (status);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_taxonomy_parent; Type: INDEX; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_taxonomy_parent ON catalog.taxonomy <span class="k">USING btree</span> (parent_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_variants_ean; Type: INDEX; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_variants_ean ON catalog.variants <span class="k">USING btree</span> (ean);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_variants_product; Type: INDEX; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_variants_product ON catalog.variants <span class="k">USING btree</span> (product_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: uq_taxonomy_sku_prefix; Type: INDEX; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">UNIQUE</span> <span class="k">INDEX</span> uq_taxonomy_sku_prefix ON catalog.taxonomy <span class="k">USING btree</span> (sku_prefix) <span class="k">WHERE</span> (sku_prefix IS <span class="k">NOT NULL</span>);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: collections fk_collections_brand; Type: FK CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.collections
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_collections_brand <span class="k">FOREIGN KEY</span> (brand_id) <span class="k">REFERENCES</span> catalog.brands(brand_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: compliance fk_compliance_evidence; Type: FK CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.compliance
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_compliance_evidence <span class="k">FOREIGN KEY</span> (evidence_document_id) <span class="k">REFERENCES</span> catalog.documents(document_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: compliance fk_compliance_product; Type: FK CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.compliance
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_compliance_product <span class="k">FOREIGN KEY</span> (product_id) <span class="k">REFERENCES</span> catalog.products(product_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: documents fk_documents_superseded_by; Type: FK CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.documents
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_documents_superseded_by <span class="k">FOREIGN KEY</span> (superseded_by) <span class="k">REFERENCES</span> catalog.documents(document_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: images fk_images_product; Type: FK CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.images
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_images_product <span class="k">FOREIGN KEY</span> (product_id) <span class="k">REFERENCES</span> catalog.products(product_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: product_metadata fk_product_metadata_product; Type: FK CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.product_metadata
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_product_metadata_product <span class="k">FOREIGN KEY</span> (product_id) <span class="k">REFERENCES</span> catalog.products(product_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: product_relations fk_product_relations_from; Type: FK CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.product_relations
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_product_relations_from <span class="k">FOREIGN KEY</span> (from_product_id) <span class="k">REFERENCES</span> catalog.products(product_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: product_relations fk_product_relations_to; Type: FK CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.product_relations
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_product_relations_to <span class="k">FOREIGN KEY</span> (to_product_id) <span class="k">REFERENCES</span> catalog.products(product_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: products fk_products_brand; Type: FK CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.products
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_products_brand <span class="k">FOREIGN KEY</span> (brand_id) <span class="k">REFERENCES</span> catalog.brands(brand_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: products fk_products_category; Type: FK CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.products
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_products_category <span class="k">FOREIGN KEY</span> (category_id) <span class="k">REFERENCES</span> catalog.taxonomy(category_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: products fk_products_collection; Type: FK CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.products
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_products_collection <span class="k">FOREIGN KEY</span> (collection_id) <span class="k">REFERENCES</span> catalog.collections(collection_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: products fk_products_range; Type: FK CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.products
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_products_range <span class="k">FOREIGN KEY</span> (range_id) <span class="k">REFERENCES</span> catalog.ranges(range_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ranges fk_ranges_collection; Type: FK CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.ranges
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_ranges_collection <span class="k">FOREIGN KEY</span> (collection_id) <span class="k">REFERENCES</span> catalog.collections(collection_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: taxonomy fk_taxonomy_parent; Type: FK CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.taxonomy
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_taxonomy_parent <span class="k">FOREIGN KEY</span> (parent_id) <span class="k">REFERENCES</span> catalog.taxonomy(category_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: variants fk_variants_product; Type: FK CONSTRAINT; Schema: catalog; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> catalog.variants
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_variants_product <span class="k">FOREIGN KEY</span> (product_id) <span class="k">REFERENCES</span> catalog.products(product_id);
+
+
+<span class="c">--</span>
+<span class="c">-- PostgreSQL database dump complete</span>
+<span class="c">--</span></pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>What is left in Stage 4</h2>
+    <ul class="next">
+      <li>
+        <span class="step">0006</span>
+        <span><span class="mono">link</span></span>
+        <span class="detail">Variant-level supplier links, with the
+          <span class="mono">is_preferred</span> partial index and trigger.</span>
+      </li>
+      <li>
+        <span class="step">0007</span>
+        <span><span class="mono">pricing</span></span>
+        <span class="detail">Remembering that
+          <span class="mono">gross_margin</span> is derived at query time and
+          never a stored column.</span>
+      </li>
+      <li>
+        <span class="step">0008</span>
+        <span><span class="mono">ops</span></span>
+        <span class="detail">Including
+          <span class="mono">ops.delivery_config</span> seeded with the v1 row
+          now, so changing delivery days later is a data edit rather than a
+          migration.</span>
+      </li>
+      <li>
+        <span class="step">0009</span>
+        <span><span class="mono">stock</span></span>
+        <span class="detail">Deferrable &mdash; the stocked list is short and
+          does not gate the pilot.</span>
+      </li>
+      <li>
+        <span class="step">then</span>
+        <span>Role grants</span>
+        <span class="detail">The Stage 2 <span class="mono">GRANT</span> block
+          parked until tables existed. Without it
+          <span class="mono">mos_pipeline</span> and
+          <span class="mono">mos_nocodb</span> connect fine and can read
+          nothing.</span>
+      </li>
+    </ul>
+  </section>
+
+</div>
