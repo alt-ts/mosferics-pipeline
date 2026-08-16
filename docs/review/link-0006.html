@@ -395,7 +395,7 @@
 <div class="wrap">
 
   <header>
-    <div class="eyebrow">Migration 0006, amended by 0007 &middot; both applied to live 16 Aug 2026</div>
+    <div class="eyebrow">Migrations 0006&ndash;0008 &middot; all applied to live 16 Aug 2026</div>
     <h1>The <span class="mono">link</span> schema, as Postgres now holds it</h1>
     <p class="lede">Two tables that join their world to ours. One is
       deterministic and maintained by hand; the other is fuzzy, proposed by the
@@ -412,12 +412,13 @@
       <li><span class="rev">0004</span><span class="what">raw immutability</span></li>
       <li><span class="rev">0005</span><span class="what">catalog</span></li>
       <li><span class="rev">0006</span><span class="what">link</span></li>
-      <li class="now"><span class="rev">0007</span><span class="what">preferred-link rules</span></li>
+      <li><span class="rev">0007</span><span class="what">preferred-link rules</span></li>
+      <li class="now"><span class="rev">0008</span><span class="what">signed confirmations</span></li>
     </ol>
     <p class="head-note">Live and scratch are both at
-      <span class="mono">0007</span>. Both tables are empty. Remaining in
-      Stage 4: <span class="mono">pricing</span> at 0008,
-      <span class="mono">ops</span> at 0009, and <span class="mono">stock</span>
+      <span class="mono">0008</span>. Both tables are empty. Remaining in
+      Stage 4: <span class="mono">pricing</span> at 0009,
+      <span class="mono">ops</span> at 0010, and <span class="mono">stock</span>
       if it is wanted before the pilot.</p>
   </section>
 
@@ -493,16 +494,61 @@
   </section>
 
   <section>
-    <h2>What this asks of <span class="mono">link.py</span></h2>
-    <p class="prose head-note">The data model says single-source items get an
-      auto-created 1:1 link at confidence 1.0, preferred by default. Under rule
-      2 those rows must be written as
-      <span class="mono">status = 'confirmed'</span>, with
-      <span class="mono">confirmed_by = 'pipeline'</span> and
-      <span class="mono">confirmed_at</span> set to the run timestamp
-      &mdash; <strong>both audit columns, every auto-confirmed link</strong>.
-      Each way of getting it wrong fails differently, and only the first is
-      loud.</p>
+    <h2>Confirmations sign themselves</h2>
+    <p class="prose head-note">0007 required a preferred link to be confirmed,
+      and 0008 required a confirmed link to name its confirmer. On its own that
+      second rule would have made the reviewer&rsquo;s confirm a two-field edit &mdash;
+      tick the status, and also supply a name &mdash; so the constraint arrives
+      with a trigger that signs the row. Same shape as the preferred-link
+      design: the constraint states the fact, the trigger makes the honest
+      action a single write, and the constraint sits behind it as a backstop.</p>
+    <div class="calls">
+      <article class="call record">
+        <div class="chip">for the reviewer</div>
+        <h3>One tick, no NocoDB configuration</h3>
+        <p>He flips <span class="mono">status</span> to
+          <span class="mono">confirmed</span> and
+          <span class="mono">link.sign_confirmation()</span> fills in
+          <span class="mono">current_user</span> and
+          <span class="mono">now()</span>. Nothing to configure, and no error
+          to learn to work around.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">for the pipeline</div>
+        <h3>An explicit signature is never overwritten</h3>
+        <p>The trigger fires only when
+          <span class="mono">confirmed_by</span> is null, so
+          <span class="mono">link.py</span> writing
+          <span class="mono">'pipeline'</span> keeps it. A supplied
+          <span class="mono">confirmed_at</span> is kept too &mdash; it is
+          filled with <span class="mono">COALESCE</span>, not assigned
+          outright, so a run timestamp survives.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">role, not person</div>
+        <h3>NocoDB signs as <span class="mono">mos_nocodb</span></h3>
+        <p><span class="mono">current_user</span> is the connecting role, so a
+          human edit and a machine edit stay distinguishable without a database
+          role per person. If per-person attribution is ever wanted, have
+          NocoDB write the logged-in user into
+          <span class="mono">confirmed_by</span> and the trigger will leave it
+          alone.</p>
+      </article>
+    </div>
+    <p class="prose head-note">The two triggers are independent by
+      construction, so 0008 does not reintroduce the ordering problem 0007
+      removed: <span class="mono">enforce_preferred_link</span> reads
+      <span class="mono">status</span> and writes
+      <span class="mono">is_preferred</span>;
+      <span class="mono">sign_confirmation</span> reads
+      <span class="mono">status</span> and
+      <span class="mono">confirmed_by</span> and writes the two audit columns.
+      No column is both read by one and written by the other. Tested directly:
+      a single write that confirms and prefers in one statement produces a
+      signed, preferred link and demotes the sibling, whichever order they
+      fire in.</p>
+
+    <h2 style="margin-top:1.5rem">What <span class="mono">link.py</span> can and cannot write</h2>
     <div class="scroll">
       <table>
         <thead>
@@ -510,25 +556,27 @@
         </thead>
         <tbody>
           <tr>
-            <td class="name mono">confirmed_by alone, or confirmed_at alone</td>
-            <td style="text-align:left">Insert <strong>fails</strong> the pairing check. The good case</td>
+            <td class="name mono">status = 'confirmed', both columns null</td>
+            <td style="text-align:left">Trigger signs it as the connecting role. <strong>The intended path</strong></td>
+          </tr>
+          <tr>
+            <td class="name mono">status = 'confirmed', confirmed_by, confirmed_at</td>
+            <td style="text-align:left">Kept verbatim; the trigger does not fire</td>
+          </tr>
+          <tr>
+            <td class="name mono">confirmed_by alone</td>
+            <td style="text-align:left"><strong>Fails</strong> the pairing check &mdash; the signing trigger only fires when confirmed_by is null. Loud, and correct</td>
           </tr>
           <tr>
             <td class="name mono">neither, status left at its proposed default</td>
-            <td style="text-align:left">Insert succeeds; the trigger <strong>silently drops</strong> is_preferred on every single-source variant</td>
-          </tr>
-          <tr>
-            <td class="name mono">status = 'confirmed', both columns null</td>
-            <td style="text-align:left">Insert succeeds and stays preferred, recording <strong>a confirmation nobody made</strong></td>
+            <td style="text-align:left">Succeeds, and the preferred-link trigger <strong>silently drops</strong> is_preferred on every single-source variant</td>
           </tr>
         </tbody>
       </table>
     </div>
-    <p class="head-note">Recording an auto-created 1:1 link as confirmed is
-      consistent with the data model &mdash; such a link is never something a
-      human is asked about, so confirmed is the honest state rather than a
-      shortcut. But it is the pipeline asserting a confirmation, which is
-      exactly why it has to sign it.</p>
+    <p class="head-note">Only the last row is quiet, and it is quiet by
+      design &mdash; it is the same silent demotion the review queue is booked
+      to surface.</p>
   </section>
 
   <section>
@@ -536,22 +584,22 @@
     <div class="tiles">
       <div class="tile">
         <div class="figure">2&times;</div>
-        <div class="label">down / up cycles of each of 0006 and 0007 on scratch</div>
+        <div class="label">down / up cycles of each of 0006, 0007 and 0008 on scratch</div>
         <div class="verdict">clean</div>
       </div>
       <div class="tile">
-        <div class="figure">7</div>
+        <div class="figure">8</div>
         <div class="label">migrations torn down to base and rebuilt from empty</div>
         <div class="verdict">clean</div>
       </div>
       <div class="tile">
-        <div class="figure">28</div>
-        <div class="label">functional cases across both migrations, every constraint and every trigger path</div>
+        <div class="figure">36</div>
+        <div class="label">functional cases across all three migrations, every constraint and every trigger path</div>
         <div class="verdict">all as specified</div>
       </div>
       <div class="tile">
         <div class="figure">1</div>
-        <div class="label">write needed to change the preferred source, to reject it, or to un-confirm it</div>
+        <div class="label">write needed to confirm a link, change the preferred source, reject it, or un-confirm it</div>
         <div class="verdict">verified</div>
       </div>
     </div>
@@ -568,9 +616,37 @@
       the column lists and the two <span class="mono">is_preferred</span>
       mechanisms; everything below fills gaps around them.</p>
     <div class="calls">
-      <article class="call open"><div class="chip">still open</div><h3>A confirmed link can be signed by nobody</h3><p>Rule 2 stops a proposed link being preferred, but nothing stops <span class="mono">status = 'confirmed'</span> being written with both audit columns null. The pairing constraint only says the two columns agree with each other, not that a confirmation has a confirmer. Closing it is one CHECK &mdash; <span class="mono">status &lt;&gt; 'confirmed' OR confirmed_by IS NOT NULL</span> &mdash; and would bind human confirmations as well as pipeline ones. Not added without asking, because it changes what NocoDB has to supply when the reviewer confirms a link by hand.</p></article>
-<article class="call open"><div class="chip">known gap</div><h3>The demotion is silent</h3><p>Rejecting or un-confirming the preferred link leaves the variant with no preferred source and nothing reports it. That is the cost of making it a single write. The mitigation is booked rather than built: <span class="mono">ops.review_queue</span> must surface any variant holding at least one confirmed link and zero preferred links, and Sourcing re-picks on its next run &mdash; an item that survives across runs means no viable candidate exists.</p></article>
-<article class="call record"><div class="chip">resolved at 0007</div><h3>The unreachable CHECK is now reachable again</h3><p>Under 0006 the demote trigger resolved the rejected-and-preferred condition before the constraint could test it, leaving a CHECK that could never fire. The 0007 constraint is stricter than the trigger's demote step in one direction &mdash; the trigger only acts on rows it is invoked for &mdash; so it earns its place rather than standing as documentation.</p></article>
+      <article class="call record">
+        <div class="chip">closed at 0008</div>
+        <h3>A confirmed link can no longer be signed by nobody</h3>
+        <p>0007 left this open: <span class="mono">status = 'confirmed'</span>
+          with both audit columns null was legal, recording a confirmation
+          nobody made. <span class="mono">ck_variant_links_confirmed_has_confirmer</span>
+          now forbids it and the signing trigger means nobody meets the error.
+          Verified as a real backstop by disabling the trigger and watching the
+          constraint reject the row.</p>
+      </article>
+      <article class="call open">
+        <div class="chip">known gap</div>
+        <h3>The demotion is still silent</h3>
+        <p>Rejecting or un-confirming the preferred link leaves the variant
+          with no preferred source and nothing reports it. That is the cost of
+          making it a single write. The mitigation is booked rather than built:
+          <span class="mono">ops.review_queue</span> must surface any variant
+          holding at least one confirmed link and zero preferred links, and
+          Sourcing re-picks on its next run &mdash; an item that survives
+          across runs means no viable candidate exists.</p>
+      </article>
+      <article class="call open">
+        <div class="chip">worth knowing</div>
+        <h3>Attribution is per role, not per person</h3>
+        <p>Every NocoDB confirmation signs as
+          <span class="mono">mos_nocodb</span>, so the audit trail says a human
+          confirmed it, not which human. That is the right trade for a shop
+          where the reviewer is the reviewer, and it is the one thing to revisit if a
+          second reviewer ever joins.</p>
+      </article>
+      <article class="call record"><div class="chip">resolved at 0007</div><h3>The unreachable CHECK is now reachable again</h3><p>Under 0006 the demote trigger resolved the rejected-and-preferred condition before the constraint could test it, leaving a CHECK that could never fire. The 0007 constraint is stricter than the trigger's demote step in one direction &mdash; the trigger only acts on rows it is invoked for &mdash; so it earns its place rather than standing as documentation.</p></article>
 <article class="call record"><div class="chip">for the record</div><h3>match_confidence is numeric(4,3), range-checked 0..1</h3><p>The data model names the column but not its type or bounds. Three decimals is enough for a matching score and the range check stops a percentage being written where a fraction belongs &mdash; the classic way 0.92 becomes 92.</p></article>
 <article class="call record"><div class="chip">for the record</div><h3>confirmed_by and confirmed_at must agree</h3><p>Both set or both null, on each table. A confirmation with no confirmer is not a confirmation, and half-written audit columns are the kind of thing that is discovered a year later when someone asks who approved a link.</p></article>
 <article class="call record"><div class="chip">for the record</div><h3>status defaults to proposed</h3><p>The pipeline proposes and a human confirms, so the default is the state a row arrives in. <span class="mono">is_preferred</span> likewise defaults false and is NOT NULL &mdash; there is no such thing as a link whose preference is unknown. Note that this default is what makes the second failure row above silent.</p></article>
@@ -597,15 +673,15 @@
           </tr>
           <tr>
             <td class="mono name">variant_links</td>
-            <td>8</td><td>5</td><td>2</td><td>4</td><td>1</td>
+            <td>8</td><td>6</td><td>2</td><td>4</td><td>2</td>
           </tr>
         </tbody>
       </table>
     </div>
-    <p class="head-note">The trigger count dropped from three to one at 0007
-      with no loss of behaviour. The asymmetry between the tables is the point:
-      deterministic tables need constraints, fuzzy ones need constraints and
-      machinery.</p>
+    <p class="head-note">0007 cut the trigger count from three to one with no
+      loss of behaviour; 0008 added the second back for a different job. The
+      asymmetry between the tables is the point: deterministic tables need
+      constraints, fuzzy ones need constraints and machinery.</p>
   </section>
 
   <section>
@@ -613,7 +689,7 @@
     <div class="ddl">
       <div class="ddl-bar">
         <div class="cmd">pg_dump -s -n link -h localhost -U mos_owner mosferics</div>
-        <div class="count">191 lines</div>
+        <div class="count">216 lines</div>
       </div>
       <pre tabindex="0"><span class="c">--</span>
 <span class="c">-- PostgreSQL database dump</span>
@@ -677,6 +753,23 @@
 
 <span class="k">ALTER FUNCTION</span> link.enforce_preferred_link() <span class="k">OWNER TO</span> mos_owner;
 
+<span class="c">--</span>
+<span class="c">-- Name: sign_confirmation(); Type: FUNCTION; Schema: link; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">FUNCTION</span> link.sign_confirmation() <span class="k">RETURNS</span> <span class="t">trigger</span>
+    <span class="k">LANGUAGE</span> plpgsql
+    AS $$
+        <span class="k">BEGIN</span>
+            NEW.confirmed_by := <span class="k">current_user</span>;
+            NEW.confirmed_at := <span class="k">COALESCE</span>(NEW.confirmed_at, <span class="k">now</span>());
+            RETURN NEW;
+        <span class="k">END</span>;
+        $$;
+
+
+<span class="k">ALTER FUNCTION</span> link.sign_confirmation() <span class="k">OWNER TO</span> mos_owner;
+
 <span class="k">SET</span> default_tablespace = &#x27;&#x27;;
 
 <span class="k">SET</span> default_table_access_method = <span class="t">heap</span>;
@@ -712,6 +805,7 @@
     is_preferred <span class="t">boolean</span> <span class="k">DEFAULT</span> false <span class="k">NOT NULL</span>,
     <span class="k">CONSTRAINT</span> ck_variant_links_confidence_range <span class="k">CHECK</span> (((match_confidence IS NULL) OR ((match_confidence &gt;= (0)::<span class="t">numeric</span>) AND (match_confidence &lt;= (1)::<span class="t">numeric</span>)))),
     <span class="k">CONSTRAINT</span> ck_variant_links_confirmation_complete <span class="k">CHECK</span> (((confirmed_by IS NULL) = (confirmed_at IS NULL))),
+    <span class="k">CONSTRAINT</span> ck_variant_links_confirmed_has_confirmer <span class="k">CHECK</span> (((status &lt;&gt; &#x27;confirmed&#x27;::<span class="t">text</span>) OR (confirmed_by IS <span class="k">NOT NULL</span>))),
     <span class="k">CONSTRAINT</span> ck_variant_links_match_type <span class="k">CHECK</span> ((match_type = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;identical&#x27;::<span class="t">text</span>, &#x27;equivalent&#x27;::<span class="t">text</span>, &#x27;substitute&#x27;::<span class="t">text</span>]))),
     <span class="k">CONSTRAINT</span> ck_variant_links_preferred_is_confirmed <span class="k">CHECK</span> (((NOT is_preferred) OR (status = &#x27;confirmed&#x27;::<span class="t">text</span>))),
     <span class="k">CONSTRAINT</span> ck_variant_links_status <span class="k">CHECK</span> ((status = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;proposed&#x27;::<span class="t">text</span>, &#x27;confirmed&#x27;::<span class="t">text</span>, &#x27;rejected&#x27;::<span class="t">text</span>])))
@@ -772,6 +866,13 @@
 
 
 <span class="c">--</span>
+<span class="c">-- Name: variant_links trg_variant_links_sign_confirmation; Type: TRIGGER; Schema: link; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TRIGGER</span> trg_variant_links_sign_confirmation <span class="k">BEFORE INSERT OR UPDATE</span> ON link.variant_links <span class="k">FOR EACH ROW</span> <span class="k">WHEN</span> (((new.status = &#x27;confirmed&#x27;::<span class="t">text</span>) AND (new.confirmed_by IS NULL))) <span class="k">EXECUTE FUNCTION</span> link.sign_confirmation();
+
+
+<span class="c">--</span>
 <span class="c">-- Name: category_map fk_category_map_category; Type: FK CONSTRAINT; Schema: link; Owner: mos_owner</span>
 <span class="c">--</span>
 
@@ -813,14 +914,14 @@
     <h2>What is left in Stage 4</h2>
     <ul class="next">
       <li>
-        <span class="step">0008</span>
+        <span class="step">0009</span>
         <span><span class="mono">pricing</span></span>
         <span class="detail">Remembering that
           <span class="mono">gross_margin</span> is derived at query time and
           never a stored column.</span>
       </li>
       <li>
-        <span class="step">0009</span>
+        <span class="step">0010</span>
         <span><span class="mono">ops</span></span>
         <span class="detail"><span class="mono">ops.delivery_config</span>
           seeded with the v1 row now, so changing delivery days later is a data
@@ -829,7 +930,7 @@
           but zero preferred links.</span>
       </li>
       <li>
-        <span class="step">0010</span>
+        <span class="step">0011</span>
         <span><span class="mono">stock</span></span>
         <span class="detail">Deferrable &mdash; the stocked list is short and
           does not gate the pilot.</span>

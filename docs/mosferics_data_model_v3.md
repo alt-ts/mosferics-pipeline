@@ -90,15 +90,20 @@ Every supplier product gets a link — single-source items get an auto-created 1
 
 **Preferred implies confirmed.** Tightened in migration 0007: `is_preferred` requires `status = 'confirmed'`, not merely "not rejected". Sourcing can therefore never be pointed at a match no human has agreed to. Two consequences follow, and both are real work rather than bookkeeping:
 
-- **The auto-created 1:1 link must be written as `confirmed`, with both audit columns set.** Single-source items are preferred by default, so `link.py` has to insert them with `status = 'confirmed'`, `confirmed_by = 'pipeline'` and `confirmed_at` set to the run timestamp. **Both columns, every auto-confirmed link** — the `(confirmed_by IS NULL) = (confirmed_at IS NULL)` pairing constraint admits no half-written audit trail. The three ways to get it wrong fail differently, and only one of them is loud:
+- **The auto-created 1:1 link must be written as `confirmed`.** Single-source items are preferred by default, so `link.py` has to insert them with `status = 'confirmed'`. Recording such a link as confirmed is consistent with the rule above — it is never something a human is asked about, so confirmed is the honest state rather than a shortcut. But it is the pipeline asserting a confirmation, which is why every confirmation is signed.
+
+  **Confirmations sign themselves.** Migration 0008 added `link.sign_confirmation()`, a `BEFORE INSERT OR UPDATE` trigger that fires when a row is confirmed with no `confirmed_by`, and fills in `current_user` and `now()`. So confirming is a single write for everyone: the reviewer ticks the status in NocoDB and the row signs as `mos_nocodb`; the pipeline may write `confirmed_by = 'pipeline'` explicitly and the trigger leaves it alone. `ck_variant_links_confirmed_has_confirmer` states the rule and is left as a backstop the trigger prevents anyone reaching.
+
+  What `current_user` records is the **role, not the individual** — a NocoDB edit is `mos_nocodb`, the pipeline is `mos_pipeline` unless it names itself. That preserves the distinction that matters here, human-via-NocoDB versus machine, without needing a database role per person. If per-person attribution is ever wanted, have NocoDB write the logged-in user into `confirmed_by`; the trigger will then not touch it.
+
+  One way to get it wrong survives, and it is loud: writing `confirmed_by` without `confirmed_at` fails the `(confirmed_by IS NULL) = (confirmed_at IS NULL)` pairing check, because the signing trigger only fires when `confirmed_by` is null. A caller that knows to set one should set both.
 
   | What `link.py` writes | What happens |
   |---|---|
-  | `confirmed_by` alone, or `confirmed_at` alone | The insert **fails** the pairing check. Loud, and the good case |
-  | Neither column, `status` left at its `proposed` default | The insert **succeeds** and the trigger silently drops `is_preferred`. Every single-source variant ends up with no preferred source |
-  | `status = 'confirmed'`, both columns null | The insert **succeeds** and stays preferred, recording a confirmation nobody made |
-
-  Recording an auto-created 1:1 link as confirmed is consistent with the rule above — it is never something a human is asked about, so confirmed is the honest state rather than a shortcut. But it is the pipeline asserting a confirmation, which is exactly why it must sign it.
+  | `status = 'confirmed'`, both columns null | Trigger signs it as the connecting role. The intended path |
+  | `status = 'confirmed'`, `confirmed_by = 'pipeline'`, `confirmed_at` set | Kept verbatim; the trigger does not fire |
+  | `confirmed_by` alone | **Fails** the pairing check. Loud, and correct |
+  | Neither column, `status` left at its `proposed` default | Succeeds, and the preferred-link trigger silently drops `is_preferred`. Every single-source variant ends up with no preferred source |
 - **A confirmed variant can now hold zero preferred links.** Rejecting or un-confirming the winner demotes it in the same write, and nothing promotes a replacement. See the review-queue note below.
 
 Two mechanisms keep it consistent:
