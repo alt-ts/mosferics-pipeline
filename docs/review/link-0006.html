@@ -395,7 +395,7 @@
 <div class="wrap">
 
   <header>
-    <div class="eyebrow">Migration 0006 &middot; applied to live 16 Aug 2026</div>
+    <div class="eyebrow">Migration 0006, amended by 0007 &middot; both applied to live 16 Aug 2026</div>
     <h1>The <span class="mono">link</span> schema, as Postgres now holds it</h1>
     <p class="lede">Two tables that join their world to ours. One is
       deterministic and maintained by hand; the other is fuzzy, proposed by the
@@ -411,13 +411,14 @@
       <li><span class="rev">0003</span><span class="what">description_status</span></li>
       <li><span class="rev">0004</span><span class="what">raw immutability</span></li>
       <li><span class="rev">0005</span><span class="what">catalog</span></li>
-      <li class="now"><span class="rev">0006</span><span class="what">link</span></li>
+      <li><span class="rev">0006</span><span class="what">link</span></li>
+      <li class="now"><span class="rev">0007</span><span class="what">preferred-link rules</span></li>
     </ol>
     <p class="head-note">Live and scratch are both at
-      <span class="mono">0006</span>. Both tables are empty. Remaining in
-      Stage 4: <span class="mono">pricing</span>,
-      <span class="mono">ops</span>, and <span class="mono">stock</span> if it
-      is wanted before the pilot.</p>
+      <span class="mono">0007</span>. Both tables are empty. Remaining in
+      Stage 4: <span class="mono">pricing</span> at 0008,
+      <span class="mono">ops</span> at 0009, and <span class="mono">stock</span>
+      if it is wanted before the pilot.</p>
   </section>
 
   <section>
@@ -449,43 +450,85 @@
   </section>
 
   <section>
-    <h2>Preferred source: stated twice, maintained twice</h2>
-    <p class="prose head-note">Each invariant is written as a constraint and
-      kept true by a trigger. The constraint is the statement of fact; the
-      trigger is what makes the human-facing action a single write instead of a
-      careful sequence. Neither pair can be violated by getting the order
-      wrong, because there is no order to get wrong.</p>
+    <h2>Preferred source, after 0007</h2>
+    <p class="prose head-note">Three rules, each stated as a constraint and kept
+      true by one trigger. The constraints are the statements of fact; the
+      trigger is what makes every human-facing action a single write instead of
+      a careful sequence.</p>
     <div class="calls">
       <article class="call record">
-        <div class="chip">at most one winner</div>
-        <h3>Partial unique index, plus a sibling-clearing trigger</h3>
+        <div class="chip">rule 1 &middot; at most one</div>
+        <h3>Partial unique index on the variant</h3>
         <p><span class="mono">UNIQUE (variant_id) WHERE is_preferred</span>
-          allows one preferred link per variant. Promoting a source demotes the
-          others in the same statement, so changing the preferred supplier is
-          &ldquo;mark this one&rdquo; rather than an unset-then-set dance that
-          would trip the index in between. Re-promoting the current winner does
-          nothing and does not recurse.</p>
+          allows one preferred link per variant. &ldquo;At least one&rdquo; is
+          not asserted and could not be &mdash; a variant exists before its
+          first link does.</p>
       </article>
       <article class="call record">
-        <div class="chip">never a rejected winner</div>
-        <h3>CHECK, plus a demote-on-reject trigger</h3>
-        <p>Rejecting the preferred link sets
-          <span class="mono">is_preferred</span> to false on the way through
-          rather than raising. Ticking &ldquo;rejected&rdquo; in NocoDB on
-          whichever source happens to be preferred now just works.</p>
+        <div class="chip">rule 2 &middot; confirmed only</div>
+        <h3>Preferred implies confirmed</h3>
+        <p>Tightened in 0007 from the weaker &ldquo;not rejected&rdquo;. A
+          proposed link can no longer be the preferred source, so Sourcing can
+          never be pointed at a match no human has agreed to.</p>
       </article>
       <article class="call record">
-        <div class="chip">trigger order</div>
-        <h3>The demotion trigger sorts first, deliberately</h3>
-        <p>Postgres fires <span class="mono">BEFORE</span> row triggers in name
-          order and re-evaluates each <span class="mono">WHEN</span> clause
-          against <span class="mono">NEW</span> as earlier triggers left it. A
-          contradictory write setting <span class="mono">is_preferred</span>
-          and <span class="mono">status = 'rejected'</span> together therefore
-          demotes first, which makes the promotion trigger's condition false
-          and leaves the variant's existing winner untouched.</p>
+        <div class="chip">rule 3 &middot; one trigger</div>
+        <h3>Demote, then clear, in that stated order</h3>
+        <p><span class="mono">link.enforce_preferred_link()</span> runs only on
+          a row trying to be preferred. <em>Demote</em>: if the row is not
+          confirmed, drop the flag rather than raising, so rejecting or
+          un-confirming the winner is one write. <em>Clear</em>: otherwise
+          demote the variant's other links.</p>
       </article>
     </div>
+    <p class="prose head-note">0006 split those two steps across two trigger
+      functions and relied on Postgres firing <span class="mono">BEFORE</span>
+      row triggers in name order &mdash; correct, but its correctness lived in
+      the fact that one trigger name sorted before another. 0007 folded them
+      into a single function so the order is written down. The sibling
+      <span class="mono">UPDATE</span> sets
+      <span class="mono">is_preferred = false</span>, which fails the trigger's
+      own <span class="mono">WHEN</span> clause, so the recursive pass stops at
+      the trigger rather than at a guard inside the function.</p>
+  </section>
+
+  <section>
+    <h2>What this asks of <span class="mono">link.py</span></h2>
+    <p class="prose head-note">The data model says single-source items get an
+      auto-created 1:1 link at confidence 1.0, preferred by default. Under rule
+      2 those rows must be written as
+      <span class="mono">status = 'confirmed'</span>, with
+      <span class="mono">confirmed_by = 'pipeline'</span> and
+      <span class="mono">confirmed_at</span> set to the run timestamp
+      &mdash; <strong>both audit columns, every auto-confirmed link</strong>.
+      Each way of getting it wrong fails differently, and only the first is
+      loud.</p>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>What is written</th><th style="text-align:left">What happens</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="name mono">confirmed_by alone, or confirmed_at alone</td>
+            <td style="text-align:left">Insert <strong>fails</strong> the pairing check. The good case</td>
+          </tr>
+          <tr>
+            <td class="name mono">neither, status left at its proposed default</td>
+            <td style="text-align:left">Insert succeeds; the trigger <strong>silently drops</strong> is_preferred on every single-source variant</td>
+          </tr>
+          <tr>
+            <td class="name mono">status = 'confirmed', both columns null</td>
+            <td style="text-align:left">Insert succeeds and stays preferred, recording <strong>a confirmation nobody made</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="head-note">Recording an auto-created 1:1 link as confirmed is
+      consistent with the data model &mdash; such a link is never something a
+      human is asked about, so confirmed is the honest state rather than a
+      shortcut. But it is the pipeline asserting a confirmation, which is
+      exactly why it has to sign it.</p>
   </section>
 
   <section>
@@ -493,29 +536,30 @@
     <div class="tiles">
       <div class="tile">
         <div class="figure">2&times;</div>
-        <div class="label">down / up cycles of 0006 on the scratch database</div>
+        <div class="label">down / up cycles of each of 0006 and 0007 on scratch</div>
         <div class="verdict">clean</div>
       </div>
       <div class="tile">
-        <div class="figure">6</div>
+        <div class="figure">7</div>
         <div class="label">migrations torn down to base and rebuilt from empty</div>
         <div class="verdict">clean</div>
       </div>
       <div class="tile">
-        <div class="figure">14</div>
-        <div class="label">functional cases across both trigger pairs and every constraint</div>
+        <div class="figure">28</div>
+        <div class="label">functional cases across both migrations, every constraint and every trigger path</div>
         <div class="verdict">all as specified</div>
       </div>
       <div class="tile">
         <div class="figure">1</div>
-        <div class="label">write needed to change the preferred source, or to reject it</div>
+        <div class="label">write needed to change the preferred source, to reject it, or to un-confirm it</div>
         <div class="verdict">verified</div>
       </div>
     </div>
-    <p class="head-note">The contradictory case was tested explicitly: with BBP
-      preferred, an update setting the Artis link to preferred and rejected in
-      one statement leaves Artis rejected and unpreferred, and BBP still the
-      winner.</p>
+    <p class="head-note">Including the contradictory case: with BBP preferred,
+      an update setting the Artis link to preferred and rejected in one
+      statement leaves Artis rejected and unpreferred, and BBP still the
+      winner. Under 0006 that outcome depended on trigger name ordering; under
+      0007 it depends on the order written in the function.</p>
   </section>
 
   <section>
@@ -524,11 +568,12 @@
       the column lists and the two <span class="mono">is_preferred</span>
       mechanisms; everything below fills gaps around them.</p>
     <div class="calls">
-      <article class="call open"><div class="chip">your call, taken</div><h3>Rejection demotes silently</h3><p>You asked for auto-demote over a raised error, so rejecting the preferred link leaves the variant with no preferred source at all until Sourcing next runs. That is a real gap rather than a tidy state &mdash; but &ldquo;at least one preferred link&rdquo; was never a schema invariant anyway, since a variant exists before its first link does. Worth knowing that nothing warns you it happened.</p></article>
-<article class="call open"><div class="chip">worth a look</div><h3>The CHECK is now unreachable from normal writes</h3><p><span class="mono">ck_variant_links_preferred_not_rejected</span> can no longer fire, because the trigger resolves the condition before it is tested. I kept it: it states the invariant for anyone reading the schema, and it still catches a direct write that somehow bypasses the trigger. The alternative reading is that an unreachable constraint is dead weight.</p></article>
+      <article class="call open"><div class="chip">still open</div><h3>A confirmed link can be signed by nobody</h3><p>Rule 2 stops a proposed link being preferred, but nothing stops <span class="mono">status = 'confirmed'</span> being written with both audit columns null. The pairing constraint only says the two columns agree with each other, not that a confirmation has a confirmer. Closing it is one CHECK &mdash; <span class="mono">status &lt;&gt; 'confirmed' OR confirmed_by IS NOT NULL</span> &mdash; and would bind human confirmations as well as pipeline ones. Not added without asking, because it changes what NocoDB has to supply when the reviewer confirms a link by hand.</p></article>
+<article class="call open"><div class="chip">known gap</div><h3>The demotion is silent</h3><p>Rejecting or un-confirming the preferred link leaves the variant with no preferred source and nothing reports it. That is the cost of making it a single write. The mitigation is booked rather than built: <span class="mono">ops.review_queue</span> must surface any variant holding at least one confirmed link and zero preferred links, and Sourcing re-picks on its next run &mdash; an item that survives across runs means no viable candidate exists.</p></article>
+<article class="call record"><div class="chip">resolved at 0007</div><h3>The unreachable CHECK is now reachable again</h3><p>Under 0006 the demote trigger resolved the rejected-and-preferred condition before the constraint could test it, leaving a CHECK that could never fire. The 0007 constraint is stricter than the trigger's demote step in one direction &mdash; the trigger only acts on rows it is invoked for &mdash; so it earns its place rather than standing as documentation.</p></article>
 <article class="call record"><div class="chip">for the record</div><h3>match_confidence is numeric(4,3), range-checked 0..1</h3><p>The data model names the column but not its type or bounds. Three decimals is enough for a matching score and the range check stops a percentage being written where a fraction belongs &mdash; the classic way 0.92 becomes 92.</p></article>
 <article class="call record"><div class="chip">for the record</div><h3>confirmed_by and confirmed_at must agree</h3><p>Both set or both null, on each table. A confirmation with no confirmer is not a confirmation, and half-written audit columns are the kind of thing that is discovered a year later when someone asks who approved a link.</p></article>
-<article class="call record"><div class="chip">for the record</div><h3>status defaults to proposed</h3><p>The pipeline proposes and a human confirms, so the default is the state a row arrives in. <span class="mono">is_preferred</span> likewise defaults false and is NOT NULL &mdash; there is no such thing as a link whose preference is unknown.</p></article>
+<article class="call record"><div class="chip">for the record</div><h3>status defaults to proposed</h3><p>The pipeline proposes and a human confirms, so the default is the state a row arrives in. <span class="mono">is_preferred</span> likewise defaults false and is NOT NULL &mdash; there is no such thing as a link whose preference is unknown. Note that this default is what makes the second failure row above silent.</p></article>
 <article class="call record"><div class="chip">for the record</div><h3>category_map keys on the raw string</h3><p>Not a normalised form. The raw string is what arrives on the next import, so keying on anything else would mean re-deriving the same normalisation before every lookup, and the map would quietly miss whenever the derivation changed.</p></article>
 <article class="call record"><div class="chip">for the record</div><h3>category_map has no lifecycle columns</h3><p>It is deterministic and hand-maintained, so there is no proposed / confirmed / rejected state to carry. An unmapped raw string is handled by not having a row here at all, and the review queue that picks it up lives in <span class="mono">ops</span>.</p></article>
 <article class="call record"><div class="chip">for the record</div><h3>Two extra indexes</h3><p><span class="mono">ix_variant_links_status</span> for the review queue, which reads by state, and <span class="mono">ix_category_map_category</span> for "everything mapped to this node", which is what a taxonomy restructure needs. Neither is implied by a key.</p></article>
@@ -552,13 +597,15 @@
           </tr>
           <tr>
             <td class="mono name">variant_links</td>
-            <td>8</td><td>5</td><td>2</td><td>4</td><td>3</td>
+            <td>8</td><td>5</td><td>2</td><td>4</td><td>1</td>
           </tr>
         </tbody>
       </table>
     </div>
-    <p class="head-note">The asymmetry is the point: deterministic tables need
-      constraints, fuzzy ones need constraints and machinery.</p>
+    <p class="head-note">The trigger count dropped from three to one at 0007
+      with no loss of behaviour. The asymmetry between the tables is the point:
+      deterministic tables need constraints, fuzzy ones need constraints and
+      machinery.</p>
   </section>
 
   <section>
@@ -566,7 +613,7 @@
     <div class="ddl">
       <div class="ddl-bar">
         <div class="cmd">pg_dump -s -n link -h localhost -U mos_owner mosferics</div>
-        <div class="count">207 lines</div>
+        <div class="count">191 lines</div>
       </div>
       <pre tabindex="0"><span class="c">--</span>
 <span class="c">-- PostgreSQL database dump</span>
@@ -597,40 +644,38 @@
 <span class="k">ALTER SCHEMA</span> link <span class="k">OWNER TO</span> mos_owner;
 
 <span class="c">--</span>
-<span class="c">-- Name: clear_preferred_siblings(); Type: FUNCTION; Schema: link; Owner: mos_owner</span>
+<span class="c">-- Name: enforce_preferred_link(); Type: FUNCTION; Schema: link; Owner: mos_owner</span>
 <span class="c">--</span>
 
-<span class="k">CREATE</span> <span class="k">FUNCTION</span> link.clear_preferred_siblings() <span class="k">RETURNS</span> <span class="t">trigger</span>
+<span class="k">CREATE</span> <span class="k">FUNCTION</span> link.enforce_preferred_link() <span class="k">RETURNS</span> <span class="t">trigger</span>
     <span class="k">LANGUAGE</span> plpgsql
     AS $$
         <span class="k">BEGIN</span>
-            <span class="k">UPDATE</span> link.variant_links
-               <span class="k">SET</span> is_preferred = false
-             <span class="k">WHERE</span> variant_id = NEW.variant_id
-               AND is_preferred
-               AND supplier_product_id &lt;&gt; NEW.supplier_product_id;
+<span class="c">            -- Step 1, demote. Preference is only meaningful on a link a human</span>
+<span class="c">            -- has confirmed, so a row arriving preferred but unconfirmed loses</span>
+<span class="c">            -- the flag rather than raising. Rejecting or un-confirming the</span>
+<span class="c">            -- current winner is therefore a single write.</span>
+            <span class="k">IF</span> NEW.status &lt;&gt; &#x27;confirmed&#x27; <span class="k">THEN</span>
+                NEW.is_preferred := false;
+            <span class="k">END</span> <span class="k">IF</span>;
+
+<span class="c">            -- Step 2, clear. At most one preferred link per variant. Skipped</span>
+<span class="c">            -- when the row was already preferred, so re-marking the current</span>
+<span class="c">            -- winner stays a no-op.</span>
+            <span class="k">IF</span> NEW.is_preferred AND (TG_OP = &#x27;INSERT&#x27; OR NOT OLD.is_preferred) <span class="k">THEN</span>
+                <span class="k">UPDATE</span> link.variant_links
+                   <span class="k">SET</span> is_preferred = false
+                 <span class="k">WHERE</span> variant_id = NEW.variant_id
+                   AND is_preferred
+                   AND supplier_product_id &lt;&gt; NEW.supplier_product_id;
+            <span class="k">END</span> <span class="k">IF</span>;
+
             RETURN NEW;
         <span class="k">END</span>;
         $$;
 
 
-<span class="k">ALTER FUNCTION</span> link.clear_preferred_siblings() <span class="k">OWNER TO</span> mos_owner;
-
-<span class="c">--</span>
-<span class="c">-- Name: demote_rejected_link(); Type: FUNCTION; Schema: link; Owner: mos_owner</span>
-<span class="c">--</span>
-
-<span class="k">CREATE</span> <span class="k">FUNCTION</span> link.demote_rejected_link() <span class="k">RETURNS</span> <span class="t">trigger</span>
-    <span class="k">LANGUAGE</span> plpgsql
-    AS $$
-        <span class="k">BEGIN</span>
-            NEW.is_preferred := false;
-            RETURN NEW;
-        <span class="k">END</span>;
-        $$;
-
-
-<span class="k">ALTER FUNCTION</span> link.demote_rejected_link() <span class="k">OWNER TO</span> mos_owner;
+<span class="k">ALTER FUNCTION</span> link.enforce_preferred_link() <span class="k">OWNER TO</span> mos_owner;
 
 <span class="k">SET</span> default_tablespace = &#x27;&#x27;;
 
@@ -668,7 +713,7 @@
     <span class="k">CONSTRAINT</span> ck_variant_links_confidence_range <span class="k">CHECK</span> (((match_confidence IS NULL) OR ((match_confidence &gt;= (0)::<span class="t">numeric</span>) AND (match_confidence &lt;= (1)::<span class="t">numeric</span>)))),
     <span class="k">CONSTRAINT</span> ck_variant_links_confirmation_complete <span class="k">CHECK</span> (((confirmed_by IS NULL) = (confirmed_at IS NULL))),
     <span class="k">CONSTRAINT</span> ck_variant_links_match_type <span class="k">CHECK</span> ((match_type = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;identical&#x27;::<span class="t">text</span>, &#x27;equivalent&#x27;::<span class="t">text</span>, &#x27;substitute&#x27;::<span class="t">text</span>]))),
-    <span class="k">CONSTRAINT</span> ck_variant_links_preferred_not_rejected <span class="k">CHECK</span> (((NOT is_preferred) OR (status &lt;&gt; &#x27;rejected&#x27;::<span class="t">text</span>))),
+    <span class="k">CONSTRAINT</span> ck_variant_links_preferred_is_confirmed <span class="k">CHECK</span> (((NOT is_preferred) OR (status = &#x27;confirmed&#x27;::<span class="t">text</span>))),
     <span class="k">CONSTRAINT</span> ck_variant_links_status <span class="k">CHECK</span> ((status = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;proposed&#x27;::<span class="t">text</span>, &#x27;confirmed&#x27;::<span class="t">text</span>, &#x27;rejected&#x27;::<span class="t">text</span>])))
 );
 
@@ -720,24 +765,10 @@
 
 
 <span class="c">--</span>
-<span class="c">-- Name: variant_links trg_variant_links_demote_on_reject; Type: TRIGGER; Schema: link; Owner: mos_owner</span>
+<span class="c">-- Name: variant_links trg_variant_links_preferred; Type: TRIGGER; Schema: link; Owner: mos_owner</span>
 <span class="c">--</span>
 
-<span class="k">CREATE</span> <span class="k">TRIGGER</span> trg_variant_links_demote_on_reject <span class="k">BEFORE INSERT OR UPDATE</span> ON link.variant_links <span class="k">FOR EACH ROW</span> <span class="k">WHEN</span> (((new.status = &#x27;rejected&#x27;::<span class="t">text</span>) AND new.is_preferred)) <span class="k">EXECUTE FUNCTION</span> link.demote_rejected_link();
-
-
-<span class="c">--</span>
-<span class="c">-- Name: variant_links trg_variant_links_single_preferred; Type: TRIGGER; Schema: link; Owner: mos_owner</span>
-<span class="c">--</span>
-
-<span class="k">CREATE</span> <span class="k">TRIGGER</span> trg_variant_links_single_preferred <span class="k">BEFORE INSERT</span> ON link.variant_links <span class="k">FOR EACH ROW</span> <span class="k">WHEN</span> (new.is_preferred) <span class="k">EXECUTE FUNCTION</span> link.clear_preferred_siblings();
-
-
-<span class="c">--</span>
-<span class="c">-- Name: variant_links trg_variant_links_single_preferred_upd; Type: TRIGGER; Schema: link; Owner: mos_owner</span>
-<span class="c">--</span>
-
-<span class="k">CREATE</span> <span class="k">TRIGGER</span> trg_variant_links_single_preferred_upd <span class="k">BEFORE UPDATE</span> ON link.variant_links <span class="k">FOR EACH ROW</span> <span class="k">WHEN</span> ((new.is_preferred AND (NOT old.is_preferred))) <span class="k">EXECUTE FUNCTION</span> link.clear_preferred_siblings();
+<span class="k">CREATE</span> <span class="k">TRIGGER</span> trg_variant_links_preferred <span class="k">BEFORE INSERT OR UPDATE</span> ON link.variant_links <span class="k">FOR EACH ROW</span> <span class="k">WHEN</span> (new.is_preferred) <span class="k">EXECUTE FUNCTION</span> link.enforce_preferred_link();
 
 
 <span class="c">--</span>
@@ -782,24 +813,23 @@
     <h2>What is left in Stage 4</h2>
     <ul class="next">
       <li>
-        <span class="step">0007</span>
+        <span class="step">0008</span>
         <span><span class="mono">pricing</span></span>
         <span class="detail">Remembering that
           <span class="mono">gross_margin</span> is derived at query time and
           never a stored column.</span>
       </li>
       <li>
-        <span class="step">0008</span>
+        <span class="step">0009</span>
         <span><span class="mono">ops</span></span>
-        <span class="detail">Including
-          <span class="mono">ops.delivery_config</span> seeded with the v1 row
-          now, so changing delivery days later is a data edit rather than a
-          migration. <span class="mono">ops.review_queue</span> also lands
-          here &mdash; the unmapped-category and proposed-link queues both
-          read from it.</span>
+        <span class="detail"><span class="mono">ops.delivery_config</span>
+          seeded with the v1 row now, so changing delivery days later is a data
+          edit rather than a migration. <span class="mono">ops.review_queue</span>
+          also lands here, and must surface any variant holding confirmed links
+          but zero preferred links.</span>
       </li>
       <li>
-        <span class="step">0009</span>
+        <span class="step">0010</span>
         <span><span class="mono">stock</span></span>
         <span class="detail">Deferrable &mdash; the stocked list is short and
           does not gate the pilot.</span>
