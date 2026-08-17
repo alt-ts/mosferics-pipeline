@@ -1,4 +1,4 @@
-<title>Ops and Pricing 0009&ndash;0010</title>
+<title>Ops and Pricing Schemas</title>
 <style>
   :root {
     --ground: #F4F6F7;
@@ -395,92 +395,157 @@
 <div class="wrap">
 
   <header>
-    <div class="eyebrow">Migrations 0009&ndash;0010 &middot; applied to live 17 Aug 2026</div>
+    <div class="eyebrow">Migrations 0009&ndash;0013 &middot; all applied to live 17 Aug 2026</div>
     <h1>The <span class="mono">ops</span> and <span class="mono">pricing</span>
       schemas, as Postgres now holds them</h1>
-    <p class="lede">Ten tables and one view, closing Stage 4's schema work. The
-      cycle turned on a single question &mdash; whether a stored
-      <span class="mono">margin_pct</span> breaks hard rule 7 &mdash; and the
-      answer reshaped both the migration and the rule.</p>
+    <p class="lede">Ten tables and one view, closing Stage 4&rsquo;s schema
+      work. The view shipped with a margin bug that flattered every multi-unit
+      line, and fixing it turned up a second, quieter problem: no role in the
+      database had ever been granted anything.</p>
   </header>
 
   <section>
     <h2>Where the chain stands</h2>
     <ol class="chain">
-      <li><span class="rev">0005</span><span class="what">catalog</span></li>
-      <li><span class="rev">0006</span><span class="what">link</span></li>
-      <li><span class="rev">0007</span><span class="what">preferred-link rules</span></li>
       <li><span class="rev">0008</span><span class="what">signed confirmations</span></li>
       <li><span class="rev">0009</span><span class="what">ops</span></li>
-      <li class="now"><span class="rev">0010</span><span class="what">pricing</span></li>
+      <li><span class="rev">0010</span><span class="what">pricing</span></li>
+      <li><span class="rev">0011</span><span class="what">margin pack-size fix</span></li>
+      <li><span class="rev">0012</span><span class="what">review_queue notes</span></li>
+      <li class="now"><span class="rev">0013</span><span class="what">role grants</span></li>
     </ol>
     <p class="head-note">Live and scratch are both at
-      <span class="mono">0010</span>. Every table is empty except
+      <span class="mono">0013</span>. Every table is empty except
       <span class="mono">ops.channels</span> (the Trade store) and
       <span class="mono">ops.delivery_config</span> (Tue/Wed/Thu, 12:00
       Europe/London, one handling day). Remaining in Stage 4:
-      <span class="mono">stock</span> if it is wanted before the pilot, and the
-      role grants below.</p>
+      <span class="mono">stock</span>, if it is wanted before the pilot.</p>
+  </section>
+
+  <section>
+    <h2>The margin was wrong, and wrong in the flattering direction</h2>
+    <p class="prose head-note">The view shipped at 0010 computed
+      <span class="mono">(final_price &minus; cost_per_base_unit) /
+      final_price</span>. But the cost is the cost of <em>one base unit</em>
+      while the price is the price of the <em>whole variant</em> &mdash; and we
+      sell in boxes. The missing term is
+      <span class="mono">&times; base_units_per_variant</span>.</p>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>variant</th><th>pack factor</th><th>cost/unit</th>
+            <th>variant cost</th><th>sell</th><th>0010 said</th>
+            <th>truth</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">single</td><td class="mono">1</td>
+            <td class="mono">2.00</td><td class="mono">2.00</td>
+            <td class="mono">18.00</td><td class="mono">88.889</td>
+            <td class="mono">88.889</td></tr>
+          <tr><td class="mono">box of 6</td><td class="mono">6</td>
+            <td class="mono">2.00</td><td class="mono">12.00</td>
+            <td class="mono">18.00</td><td class="mono">88.889</td>
+            <td class="mono">33.333</td></tr>
+          <tr><td class="mono">case of 24</td><td class="mono">24</td>
+            <td class="mono">2.00</td><td class="mono">48.00</td>
+            <td class="mono">18.00</td><td class="mono">88.889</td>
+            <td class="mono">&minus;166.667</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="prose head-note">Three properties made this dangerous. The error
+      always overstates margin, so a thin line looks comfortable. It scales
+      with pack size, so the worst cases are the worst affected &mdash; the
+      bottom row is a line losing 167% that the view called healthy. And it
+      disappears entirely at a pack factor of 1, which is why the 0010 test
+      passed: it used a single implied unit and got the right answer for the
+      wrong reason.</p>
+        <div class="calls">
+      <article class="call record">
+        <div class="chip">no default of 1</div>
+        <h3>A missing pack factor reports nothing</h3>
+        <p><span class="mono">base_units_per_variant</span> is nullable, so a variant nobody has populated now returns a NULL margin where it previously returned a confident wrong one. Coalescing it to 1 was rejected: that reproduces this exact bug for precisely the rows nobody has checked, and does it silently.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">traceable</div>
+        <h3>A NULL says which input is missing</h3>
+        <p><span class="mono">base_units_per_variant</span> and the derived <span class="mono">variant_cost</span> are now columns of the view, so an empty margin can be read straight back to its cause &mdash; no cost row, or no pack factor &mdash; without a second query against two more tables.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">inner join</div>
+        <h3>Reaching for the pack factor drops no rows</h3>
+        <p>The join to <span class="mono">catalog.variants</span> is an inner join, unlike the one to <span class="mono">cost_basis</span>. It cannot lose a row: <span class="mono">variant_prices.variant_id</span> is NOT NULL and carries a foreign key, so every price row has exactly one variant. The 0010 invariant &mdash; view rows equal price rows &mdash; still holds and is still asserted.</p>
+      </article>
+    </div>
   </section>
 
   <section>
     <h2>Two margins, not one</h2>
     <p class="prose head-note">Hard rule 7 says the gross margin is derived at
       query time and never stored. The data model specifies a stored
-      <span class="mono">margin_pct</span> on
-      <span class="mono">variant_prices</span>. Both documents were right and
-      neither said which margin it meant.</p>
+      <span class="mono">margin_pct</span>. Both were right and neither said
+      which margin it meant.</p>
         <div class="calls">
       <article class="call record">
         <div class="chip">the live margin</div>
         <h3>final_price against today&rsquo;s cost</h3>
-        <p>This is the one rule 7 is about. A stored copy goes stale the moment cost moves and then lies about the current relationship between price and cost &mdash; which is the failure the rule exists to prevent. It now has a name of its own: <span class="mono">pricing.live_margins</span>.</p>
+        <p>The one rule 7 is about. A stored copy goes stale the moment cost moves and then lies about the current relationship between price and cost. It now has a name of its own: <span class="mono">pricing.live_margins</span>.</p>
       </article>
       <article class="call record">
         <div class="chip">the snapshot</div>
         <h3>The margin the approval gate judged</h3>
-        <p><span class="mono">margin_pct</span> records the margin at the moment the price was calculated. It is a stored <em>output</em>, not the stored input rule 7 forbids &mdash; nobody types a margin and has the system back-solve a price from it.</p>
+        <p><span class="mono">margin_pct</span> records the margin at the moment the price was calculated. A stored <em>output</em>, not the stored input rule 7 forbids &mdash; nobody types a margin and has the system back-solve a price from it.</p>
       </article>
     </div>
     <p class="prose head-note">The snapshot is kept because it cannot be
-      rebuilt. <span class="mono">cost_basis</span> holds a current cost with no
+      rebuilt: <span class="mono">cost_basis</span> holds a current cost with no
       history, so once cost moves, the calc-time cost is gone and
       <span class="mono">margin_pct</span> is the only record of what the gate
-      actually saw. From the scratch test, both figures for one variant:</p>
-    <div class="scroll">
-      <table>
-        <thead>
-          <tr><th>variant</th><th>final_price</th><th>cost now</th>
-            <th>gross_margin</th><th>margin_pct_at_calc</th><th>status</th></tr>
-        </thead>
-        <tbody>
-          <tr><td class="mono">healthy</td><td class="mono">40.00</td>
-            <td class="mono">28.0000</td><td class="mono">30.000</td>
-            <td class="mono">30.000</td><td class="mono">auto_approved</td></tr>
-          <tr><td class="mono">lossmaker</td><td class="mono">55.00</td>
-            <td class="mono">33.6000</td><td class="mono">38.909</td>
-            <td class="mono">&minus;8.500</td><td class="mono">approved</td></tr>
-        </tbody>
-      </table>
-    </div>
-    <p class="prose head-note">The second row is the whole argument: a price
-      flagged as a loss-maker when it was set, healthy against today&rsquo;s
-      lower cost. Drop the column and that story is unrecoverable.</p>
-        <div class="calls">
+      saw. A snapshot of &minus;8.500 beside a live 38.909 is a real audit
+      story &mdash; flagged as a loss-maker when set, healthy against
+      today&rsquo;s lower cost. The view returns both side by side, so that
+      comparison is one read.</p>
+  </section>
+
+  <section>
+    <h2>Nothing in the database had any grants</h2>
+    <p class="prose head-note">Found while checking that the margin view would
+      be readable. <span class="mono">relacl</span> was empty on every table in
+      every schema and <span class="mono">pg_default_acl</span> had no rows at
+      all &mdash; the Stage 2 block was deferred to Stage 4 and never run.
+      Nothing had noticed because everything so far connects as
+      <span class="mono">mos_owner</span>; NocoDB would have been the first
+      thing to open onto an apparently empty database.</p>
+    <div class="calls">
       <article class="call record">
-        <div class="chip">left join</div>
-        <h3>An uncosted variant must not vanish</h3>
-        <p>The view joins <span class="mono">cost_basis</span> with a LEFT JOIN. A variant priced with no cost row has an <em>unknown</em> margin, and NULL says so; an inner join would drop the row instead, so a count of the view would agree with nothing and quietly hide the gap. The test asserts the view and the price table return the same number of rows.</p>
+        <div class="chip">now a migration</div>
+        <h3>GRANT is DDL, and rule 5 has no carve-out</h3>
+        <p>The build doc had this as a psql snippet run by hand. It is now migration 0013, for three reasons: hard rule 5 forbids ad-hoc DDL; Stage 4&rsquo;s own exit criterion says <span class="mono">upgrade head</span> builds the database from empty, which was not meaningfully true while the result worked for <span class="mono">mos_owner</span> alone; and a migration can be tested on scratch, which a hand-run snippet never is.</p>
       </article>
       <article class="call record">
-        <div class="chip">nullif</div>
-        <h3>A free line does not divide by zero</h3>
-        <p><span class="mono">final_price = 0</span> is legal — the CHECK bars negatives, not zero — and a zero denominator would take the whole query down. <span class="mono">NULLIF(final_price, 0)</span> returns NULL for that row and leaves the rest of the result intact.</p>
+        <div class="chip">the silent trap</div>
+        <h3>FOR ROLE mos_owner is what makes it work</h3>
+        <p>Default privileges attach to the role that will <em>create</em> the object, defaulting to whoever runs the statement. As written, run as <span class="mono">postgres</span>, it would have recorded <span class="mono">postgres</span> &mdash; while Alembic creates as <span class="mono">mos_owner</span>. Every later table would still be born ungranted, and the statement guarding against that would be the thing that failed. 0013 tests it with a probe table.</p>
       </article>
       <article class="call record">
-        <div class="chip">column comment</div>
-        <h3>The snapshot says what it is, in psql</h3>
-        <p><span class="mono">COMMENT ON COLUMN</span> puts the warning where <span class="mono">\d+</span> shows it, so the distinction survives the moment everyone has forgotten this conversation. The name <span class="mono">margin_pct_at_calc</span> was offered and turned down as unnecessary once the comment and the view exist.</p>
+        <div class="chip">raw stays raw</div>
+        <h3>No role holds UPDATE on import_rows</h3>
+        <p>The blanket grant on <span class="mono">raw</span> is SELECT and INSERT only, with <span class="mono">UPDATE (status)</span> added back on <span class="mono">import_batches</span> by name. The audit trail is already immutable by trigger from 0004; withholding the privilege makes the permission system say the same thing, so hard rule 11 survives someone dropping the trigger.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">found in passing</div>
+        <h3>Without this grant, no SKU is ever allocated</h3>
+        <p><span class="mono">catalog.mosferics_sku_seq</span> is the one sequence not owned by an identity column, and <span class="mono">next_mosferics_sku()</span> calls <span class="mono">nextval</span> as the <em>caller</em>, not as definer. Identity columns need no sequence grant, so this one is easy to miss &mdash; and it would have failed on the first import and nowhere earlier.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">column-level</div>
+        <h3>the reviewer&rsquo;s price rights are three columns wide</h3>
+        <p><span class="mono">mos_nocodb</span> holds UPDATE on <span class="mono">override_price</span>, <span class="mono">status</span> and <span class="mono">approved_by</span> &mdash; not the row. The Stage 0 register locks his price rights to the override, so the database says so rather than trusting the UI not to offer <span class="mono">calculated_price</span>.</p>
+      </article>
+      <article class="call open">
+        <div class="chip">when stock lands</div>
+        <h3>A new schema inherits nothing</h3>
+        <p>Default privileges are per-schema, so <span class="mono">stock</span> will arrive ungranted no matter what 0013 did. It has to be added to <span class="mono">DATA_SCHEMAS</span> and granted in the same migration that creates it.</p>
       </article>
     </div>
   </section>
@@ -491,34 +556,38 @@
       <article class="call record">
         <div class="chip">cardinality</div>
         <h3>A delivery config with no delivery days</h3>
-        <p>The first version of this constraint read <span class="mono">array_length(delivery_days, 1) &gt; 0</span> and let an empty array straight through: <span class="mono">array_length</span> returns NULL rather than 0 for an empty array, and a CHECK passes on NULL. It was caught on scratch only because the test showed a ROLLBACK with no ERROR beside it. <span class="mono">cardinality()</span> returns 0 and the constraint bites.</p>
+        <p>The first version read <span class="mono">array_length(delivery_days, 1) &gt; 0</span> and let an empty array straight through: <span class="mono">array_length</span> returns NULL rather than 0 for an empty array, and a CHECK passes on NULL. Caught on scratch only because the test showed a ROLLBACK with no ERROR beside it.</p>
       </article>
       <article class="call record">
         <div class="chip">single row</div>
         <h3>A config table that cannot grow a second row</h3>
-        <p><span class="mono">CHECK (config_id = 1)</span> makes <span class="mono">delivery_config</span> a one-row table by construction. The alternative — a table with an <span class="mono">active</span> flag — invites two active rows and a question about which one the promise engine read. There is only ever one delivery promise, so the schema says so.</p>
-      </article>
-      <article class="call record">
-        <div class="chip">containment</div>
-        <h3>Weekday names without an enum type</h3>
-        <p><span class="mono">delivery_days &lt;@ ARRAY['mon', …]</span> pins the values with a containment test rather than a Postgres enum. An enum would need its own migration to change and orders its values implicitly; the array is checked just as strictly and stays ordinary text the pipeline can compare without a cast.</p>
+        <p><span class="mono">CHECK (config_id = 1)</span> makes <span class="mono">delivery_config</span> one-row by construction. The alternative &mdash; a table with an <span class="mono">active</span> flag &mdash; invites two active rows and a question about which one the promise engine read.</p>
       </article>
       <article class="call record">
         <div class="chip">biconditional</div>
         <h3>A finished run cannot still say running</h3>
-        <p><span class="mono">(status = 'running') = (finished_at IS NULL)</span> is an equality between two booleans, not an implication, so it catches both halves: a run marked succeeded with no finish time, and a run still marked running that has one. One constraint, both mistakes.</p>
+        <p><span class="mono">(status = 'running') = (finished_at IS NULL)</span> is an equality between two booleans, not an implication, so it catches both halves: a run marked succeeded with no finish time, and a run still marked running that has one.</p>
       </article>
       <article class="call record">
-        <div class="chip">three constraints</div>
-        <h3>The review queue is honest in both directions</h3>
-        <p><span class="mono">closed_has_resolver</span>, <span class="mono">open_is_unresolved</span> and <span class="mono">resolution_complete</span> look like one rule written three times. They are not: the first stops a resolved row with nobody's name on it, the second stops an open row that already carries a resolver, and the third keeps the who and the when together. Each names a different mistake, so each gives a different error.</p>
+        <div class="chip">blank guard</div>
+        <h3>notes can be absent but never empty</h3>
+        <p>The column is edited through NocoDB, where clicking into a text box and back out writes an empty string rather than a null. Without <span class="mono">btrim(notes) &lt;&gt; ''</span>, <span class="mono">notes IS NOT NULL</span> would stop meaning &ldquo;somebody wrote something&rdquo; &mdash; the only question anyone will ask of it.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">not required</div>
+        <h3>A note is not forced on resolution</h3>
+        <p>Requiring one on every close turns it into &ldquo;ok&rdquo; typed a hundred times, which is worse than an empty column: it looks like a record and is not one. The column is there for the cases that deserve it.</p>
       </article>
       <article class="call open">
         <div class="chip">for link.py</div>
         <h3>Orphaned preferred links must surface here</h3>
-        <p>Carried forward from 0007 and not yet built: a confirmed variant with zero preferred links is a real gap — the demote trigger can clear the flag without anything raising — and <span class="mono">ops.review_queue</span> is where it has to appear, under <span class="mono">entity_type = 'variant_link'</span>. The table now exists to receive it; the query that finds them is a Stage 7 job.</p>
+        <p>Carried forward from 0007 and still not built: a confirmed variant with zero preferred links is a real gap, and <span class="mono">ops.review_queue</span> is where it has to appear, under <span class="mono">entity_type = 'variant_link'</span>. The table is ready to receive it; the query that finds them is Stage 7.</p>
       </article>
     </div>
+    <p class="prose head-note"><span class="mono">notes</span> was not a new
+      idea &mdash; the data model has specified it all along and 0009 simply
+      omitted it. Every <span class="mono">ops</span> table was checked against
+      the spec afterwards; that was the only column missing.</p>
   </section>
 
   <section>
@@ -527,43 +596,22 @@
       <article class="call record">
         <div class="chip">build order</div>
         <h3>ops moved ahead of pricing to get a real FK</h3>
-        <p>The build doc had pricing at 0009 and ops at 0010, which would have left <span class="mono">variant_prices.channel_id</span> pointing at a table that did not exist. The choice was a deferred constraint or a swap. Nothing in ops depends on pricing, so the swap cost nothing and the foreign key is real from the first day.</p>
+        <p>The build doc had pricing at 0009, which would have left <span class="mono">variant_prices.channel_id</span> pointing at a table that did not exist. The choice was a deferred constraint or a swap; nothing in ops depends on pricing, so the swap cost nothing.</p>
       </article>
       <article class="call record">
         <div class="chip">two directions</div>
         <h3>vat_rate is pinned by the type and the CHECK</h3>
-        <p><span class="mono">numeric(5,4)</span> caps at 9.9999, so a bare <span class="mono">20</span> for 20% is rejected by the type — the classic 0.20-versus-20 slip. The CHECK then earns its keep on what the type still allows: negatives, and the 1–10 band where a stray <span class="mono">5.0</span> would mean 500%. Overlapping at the top end, not redundant.</p>
+        <p><span class="mono">numeric(5,4)</span> caps at 9.9999, so a bare <span class="mono">20</span> for 20% is rejected by the type. The CHECK earns its keep on what the type still allows: negatives, and the 1&ndash;10 band where a stray <span class="mono">5.0</span> would mean 500%.</p>
       </article>
       <article class="call record">
         <div class="chip">asymmetric</div>
         <h3>margin_pct is bounded above but not below</h3>
-        <p>Gross margin cannot reach 100% — that would need zero cost — so the upper bound is a real fact about the arithmetic. There is deliberately no lower bound: a price below cost gives a negative margin, and that is precisely the case the 15% floor exists to catch. Constraining it away would hide the thing the gate is for.</p>
+        <p>Gross margin cannot reach 100% &mdash; that needs zero cost &mdash; so the ceiling is a fact about the arithmetic. There is deliberately no floor: a price below cost gives a negative margin, and that is precisely what the 15% gate exists to catch.</p>
       </article>
       <article class="call record">
         <div class="chip">one constraint</div>
         <h3>Each pricing method carries its own range</h3>
-        <p><span class="mono">ck_rules_value_matches_method</span> is a single disjunction covering all three methods, because the legal range for <span class="mono">value</span> depends on which method names it: a markup is any non-negative number, a fixed margin must sit under 100, a target price must be positive. Three constraints would have let a row satisfy the wrong one.</p>
-      </article>
-    </div>
-  </section>
-
-  <section>
-    <h2>Found while checking the view: nothing has any grants</h2>
-        <div class="calls">
-      <article class="call open">
-        <div class="chip">blocks stage 5</div>
-        <h3>No role can read anything, in any schema</h3>
-        <p>Checked on live at 0010: <span class="mono">relacl</span> is empty on every table in every schema and <span class="mono">pg_default_acl</span> has no rows at all. The Stage 2 grant block was deferred to Stage 4 and never run. It has gone unnoticed because everything so far connects as <span class="mono">mos_owner</span>; NocoDB is what breaks first, connecting as <span class="mono">mos_nocodb</span> and showing an empty database.</p>
-      </article>
-      <article class="call open">
-        <div class="chip">doc corrected</div>
-        <h3>FOR ROLE mos_owner is not optional</h3>
-        <p>Default privileges attach to the role that will <em>create</em> the object, defaulting to whoever runs the statement. The doc said to run the block as <span class="mono">postgres</span>, which would have recorded <span class="mono">postgres</span> &mdash; while Alembic creates as <span class="mono">mos_owner</span>. Every later migration&rsquo;s tables would still be born ungranted, and the statement guarding against exactly that would have been the thing that failed.</p>
-      </article>
-      <article class="call record">
-        <div class="chip">verified</div>
-        <h3>Views need no separate grant</h3>
-        <p><span class="mono">ALL TABLES IN SCHEMA</span> covers views: on scratch, <span class="mono">live_margins</span> picked up <span class="mono">mos_pipeline=r</span> alongside the three real tables. Worth knowing because a view runs with its <em>owner&rsquo;s</em> rights &mdash; so the margin can be granted to someone who is not granted the cost table underneath it.</p>
+        <p><span class="mono">ck_rules_value_matches_method</span> is a single disjunction covering all three methods, because the legal range for <span class="mono">value</span> depends on which method names it. Three separate constraints would have let a row satisfy the wrong one.</p>
       </article>
     </div>
   </section>
@@ -571,16 +619,19 @@
   <section>
     <h2>How it was verified</h2>
     <ol class="chain">
-      <li><span class="rev">1</span><span class="what">0010 down / up / down / up on scratch</span></li>
-      <li><span class="rev">2</span><span class="what">full ten-migration rebuild from base</span></li>
-      <li><span class="rev">3</span><span class="what">pricing_test.sql, 8 cases</span></li>
-      <li><span class="rev">4</span><span class="what">margin_view_test.sql, 7 cases</span></li>
+      <li><span class="rev">1</span><span class="what">0011&ndash;0013 up / down / up on scratch</span></li>
+      <li><span class="rev">2</span><span class="what">full thirteen-migration rebuild from base</span></li>
+      <li><span class="rev">3</span><span class="what">margin fix, 8 cases</span></li>
+      <li><span class="rev">4</span><span class="what">grants, 10 cases</span></li>
       <li class="now"><span class="rev">5</span><span class="what">applied to live, dumped, compared</span></li>
     </ol>
-    <p class="head-note">The view test covers the audit story above, the
-      uncosted-variant row count, the zero-price division, an override moving
-      the live margin while the snapshot stays put, and that the view rejects
-      writes &mdash; it is not auto-updatable, which is the desired answer.</p>
+    <p class="head-note">The margin test covers the worked example above, a
+      missing pack factor, a missing cost row, a zero price, and the row-count
+      invariant. The grant test asserts no role holds DELETE anywhere, that
+      <span class="mono">mos_trigger</span> reaches
+      <span class="mono">raw</span> and nothing else, and &mdash; with a probe
+      table created after the fact &mdash; that a table from a future
+      migration is already readable.</p>
   </section>
 
   <section>
@@ -588,13 +639,13 @@
     <div class="ddl">
       <div class="ddl-bar">
         <div class="cmd">pg_dump -s -n ops mosferics</div>
-        <div class="count">359 lines</div>
+        <div class="count">439 lines</div>
       </div>
       <pre tabindex="0"><span class="c">--</span>
 <span class="c">-- PostgreSQL database dump</span>
 <span class="c">--</span>
 
-\restrict BpG9k9VDVyUbPVjwXotAJgUCufHXx6H6gf0Yg4x4eMwdd9KuxNeJ37drYPAF1hb
+\restrict BDF7LLD9cOP1sj1YGwfjklOepTwEFhpObJyJDf3useJI0WL04cpFX9Jcq4SwWDw
 
 <span class="c">-- Dumped from database version 16.14 (Ubuntu 16.14-1.pgdg22.04+1)</span>
 <span class="c">-- Dumped by pg_dump version 16.14 (Ubuntu 16.14-1.pgdg22.04+1)</span>
@@ -753,8 +804,10 @@
     created_at <span class="t">timestamp with time zone</span> <span class="k">DEFAULT</span> now() <span class="k">NOT NULL</span>,
     resolved_by <span class="t">text</span>,
     resolved_at <span class="t">timestamp with time zone</span>,
+    notes <span class="t">text</span>,
     <span class="k">CONSTRAINT</span> ck_review_queue_closed_has_resolver <span class="k">CHECK</span> (((status = &#x27;open&#x27;::<span class="t">text</span>) <span class="k">OR</span> (resolved_by <span class="k">IS</span> <span class="k">NOT NULL</span>))),
     <span class="k">CONSTRAINT</span> ck_review_queue_entity_type <span class="k">CHECK</span> ((entity_type = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;product_metadata&#x27;::<span class="t">text</span>, &#x27;variant_link&#x27;::<span class="t">text</span>, &#x27;variant_price&#x27;::<span class="t">text</span>, &#x27;category_map&#x27;::<span class="t">text</span>, &#x27;vocabulary&#x27;::<span class="t">text</span>, &#x27;image&#x27;::<span class="t">text</span>]))),
+    <span class="k">CONSTRAINT</span> ck_review_queue_notes_not_blank <span class="k">CHECK</span> (((notes <span class="k">IS</span> <span class="k">NULL</span>) <span class="k">OR</span> (<span class="k">btrim</span>(notes) &lt;&gt; &#x27;&#x27;::<span class="t">text</span>))),
     <span class="k">CONSTRAINT</span> ck_review_queue_open_is_unresolved <span class="k">CHECK</span> (((status &lt;&gt; &#x27;open&#x27;::<span class="t">text</span>) <span class="k">OR</span> (resolved_by <span class="k">IS</span> <span class="k">NULL</span>))),
     <span class="k">CONSTRAINT</span> ck_review_queue_resolution_complete <span class="k">CHECK</span> (((resolved_by <span class="k">IS</span> <span class="k">NULL</span>) = (resolved_at <span class="k">IS</span> <span class="k">NULL</span>))),
     <span class="k">CONSTRAINT</span> ck_review_queue_status <span class="k">CHECK</span> ((status = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;open&#x27;::<span class="t">text</span>, &#x27;resolved&#x27;::<span class="t">text</span>, &#x27;dismissed&#x27;::<span class="t">text</span>])))
@@ -762,6 +815,13 @@
 
 
 <span class="k">ALTER TABLE</span> ops.review_queue <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: COLUMN review_queue.notes; Type: COMMENT; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">COMMENT ON COLUMN</span> ops.review_queue.notes <span class="k">IS</span> &#x27;Why this was flagged, or what was done about it. Free <span class="t">text</span>, written by whoever works the queue. Null means no note; it can never be blank.&#x27;;
+
 
 <span class="c">--</span>
 <span class="c">-- Name: review_queue_queue_id_seq; Type: SEQUENCE; Schema: ops; Owner: mos_owner</span>
@@ -944,21 +1004,93 @@
 
 
 <span class="c">--</span>
+<span class="c">-- Name: SCHEMA ops; Type: ACL; Schema: -; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">GRANT</span> USAGE <span class="k">ON</span> <span class="k">SCHEMA</span> ops <span class="k">TO</span> mos_pipeline;
+<span class="k">GRANT</span> USAGE <span class="k">ON</span> <span class="k">SCHEMA</span> ops <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: TABLE channel_publish; Type: ACL; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">TABLE</span> ops.channel_publish <span class="k">TO</span> mos_pipeline;
+<span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">TABLE</span> ops.channel_publish <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: TABLE channels; Type: ACL; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">TABLE</span> ops.channels <span class="k">TO</span> mos_pipeline;
+<span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">TABLE</span> ops.channels <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: TABLE delivery_config; Type: ACL; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">TABLE</span> ops.delivery_config <span class="k">TO</span> mos_pipeline;
+<span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">TABLE</span> ops.delivery_config <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: TABLE metafield_map; Type: ACL; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">TABLE</span> ops.metafield_map <span class="k">TO</span> mos_pipeline;
+<span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">TABLE</span> ops.metafield_map <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: TABLE pipeline_runs; Type: ACL; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">TABLE</span> ops.pipeline_runs <span class="k">TO</span> mos_pipeline;
+<span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> <span class="k">TABLE</span> ops.pipeline_runs <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: TABLE review_queue; Type: ACL; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">TABLE</span> ops.review_queue <span class="k">TO</span> mos_pipeline;
+<span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">TABLE</span> ops.review_queue <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: TABLE shopify_sync; Type: ACL; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">TABLE</span> ops.shopify_sync <span class="k">TO</span> mos_pipeline;
+<span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> <span class="k">TABLE</span> ops.shopify_sync <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER DEFAULT PRIVILEGES</span> FOR ROLE mos_owner IN <span class="k">SCHEMA</span> ops <span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> TABLES <span class="k">TO</span> mos_pipeline;
+<span class="k">ALTER DEFAULT PRIVILEGES</span> FOR ROLE mos_owner IN <span class="k">SCHEMA</span> ops <span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> TABLES <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
 <span class="c">-- PostgreSQL database dump complete</span>
 <span class="c">--</span>
 
-\unrestrict BpG9k9VDVyUbPVjwXotAJgUCufHXx6H6gf0Yg4x4eMwdd9KuxNeJ37drYPAF1hb</pre>
+\unrestrict BDF7LLD9cOP1sj1YGwfjklOepTwEFhpObJyJDf3useJI0WL04cpFX9Jcq4SwWDw</pre>
     </div>
     <div class="ddl" style="margin-top: 0.9rem;">
       <div class="ddl-bar">
         <div class="cmd">pg_dump -s -n pricing mosferics</div>
-        <div class="count">230 lines</div>
+        <div class="count">301 lines</div>
       </div>
       <pre tabindex="0"><span class="c">--</span>
 <span class="c">-- PostgreSQL database dump</span>
 <span class="c">--</span>
 
-\restrict nxDgQjhu3KkonmYvMj9gVQB2kaIc0qFg6n1uHszMOLULN23QetoXwYapoZ1bvHQ
+\restrict 5cDTiADS68MaGuvtc3hsxUByd9rW3t7RjgGqVB6uUqhYekXiFRAwPf9w0cFqFKd
 
 <span class="c">-- Dumped from database version 16.14 (Ubuntu 16.14-1.pgdg22.04+1)</span>
 <span class="c">-- Dumped by pg_dump version 16.14 (Ubuntu 16.14-1.pgdg22.04+1)</span>
@@ -1042,11 +1174,14 @@
     vp.channel_id,
     vp.final_price,
     cb.cost_per_base_unit,
-    <span class="k">round</span>((((vp.final_price - cb.cost_per_base_unit) / <span class="k">NULLIF</span>(vp.final_price, (0)::<span class="t">numeric</span>)) * (100)::<span class="t">numeric</span>), 3) <span class="k">AS</span> gross_margin,
+    v.base_units_per_variant,
+    <span class="k">round</span>((cb.cost_per_base_unit * v.base_units_per_variant), 4) <span class="k">AS</span> variant_cost,
+    <span class="k">round</span>((((vp.final_price - (cb.cost_per_base_unit * v.base_units_per_variant)) / <span class="k">NULLIF</span>(vp.final_price, (0)::<span class="t">numeric</span>)) * (100)::<span class="t">numeric</span>), 3) <span class="k">AS</span> gross_margin,
     vp.margin_pct <span class="k">AS</span> margin_pct_at_calc,
     vp.status,
     cb.computed_at <span class="k">AS</span> cost_computed_at
-   <span class="k">FROM</span> (pricing.variant_prices vp
+   <span class="k">FROM</span> ((pricing.variant_prices vp
+     <span class="k">JOIN</span> catalog.variants v <span class="k">ON</span> ((v.variant_id = vp.variant_id)))
      <span class="k">LEFT JOIN</span> pricing.cost_basis cb <span class="k">ON</span> ((cb.variant_id = vp.variant_id)));
 
 
@@ -1056,7 +1191,7 @@
 <span class="c">-- Name: VIEW live_margins; Type: COMMENT; Schema: pricing; Owner: mos_owner</span>
 <span class="c">--</span>
 
-<span class="k">COMMENT ON VIEW</span> pricing.live_margins <span class="k">IS</span> &#x27;The live gross margin: final_price against today&#x27;&#x27;s cost. Derived at query time and never stored (hard rule 7). gross_margin is the current figure; margin_pct_at_calc is the stored snapshot the approval gate judged, and the two are expected to differ once cost moves.&#x27;;
+<span class="k">COMMENT ON VIEW</span> pricing.live_margins <span class="k">IS</span> &#x27;The live gross margin: final_price against today&#x27;&#x27;s cost for the whole variant, i.e. cost_per_base_unit * base_units_per_variant. Derived at query time and never stored (hard rule 7). gross_margin is the current figure; margin_pct_at_calc is the stored snapshot the approval gate judged, and the two are expected to differ once cost moves. A <span class="k">NULL</span> gross_margin means a missing input — check variant_cost to see which.&#x27;;
 
 
 <span class="c">--</span>
@@ -1179,22 +1314,93 @@
 
 
 <span class="c">--</span>
+<span class="c">-- Name: SCHEMA pricing; Type: ACL; Schema: -; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">GRANT</span> USAGE <span class="k">ON</span> <span class="k">SCHEMA</span> pricing <span class="k">TO</span> mos_pipeline;
+<span class="k">GRANT</span> USAGE <span class="k">ON</span> <span class="k">SCHEMA</span> pricing <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: TABLE cost_basis; Type: ACL; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">TABLE</span> pricing.cost_basis <span class="k">TO</span> mos_pipeline;
+<span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> <span class="k">TABLE</span> pricing.cost_basis <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: TABLE variant_prices; Type: ACL; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">TABLE</span> pricing.variant_prices <span class="k">TO</span> mos_pipeline;
+<span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> <span class="k">TABLE</span> pricing.variant_prices <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: COLUMN variant_prices.override_price; Type: ACL; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">GRANT</span> <span class="k">UPDATE</span>(override_price) <span class="k">ON</span> <span class="k">TABLE</span> pricing.variant_prices <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: COLUMN variant_prices.status; Type: ACL; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">GRANT</span> <span class="k">UPDATE</span>(status) <span class="k">ON</span> <span class="k">TABLE</span> pricing.variant_prices <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: COLUMN variant_prices.approved_by; Type: ACL; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">GRANT</span> <span class="k">UPDATE</span>(approved_by) <span class="k">ON</span> <span class="k">TABLE</span> pricing.variant_prices <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: TABLE live_margins; Type: ACL; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">TABLE</span> pricing.live_margins <span class="k">TO</span> mos_pipeline;
+<span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> <span class="k">TABLE</span> pricing.live_margins <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: TABLE rules; Type: ACL; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> <span class="k">TABLE</span> pricing.rules <span class="k">TO</span> mos_pipeline;
+<span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> <span class="k">TABLE</span> pricing.rules <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER DEFAULT PRIVILEGES</span> FOR ROLE mos_owner IN <span class="k">SCHEMA</span> pricing <span class="k">GRANT</span> <span class="k">SELECT</span>,<span class="k">INSERT</span>,<span class="k">UPDATE</span> <span class="k">ON</span> TABLES <span class="k">TO</span> mos_pipeline;
+<span class="k">ALTER DEFAULT PRIVILEGES</span> FOR ROLE mos_owner IN <span class="k">SCHEMA</span> pricing <span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> TABLES <span class="k">TO</span> mos_nocodb;
+
+
+<span class="c">--</span>
 <span class="c">-- PostgreSQL database dump complete</span>
 <span class="c">--</span>
 
-\unrestrict nxDgQjhu3KkonmYvMj9gVQB2kaIc0qFg6n1uHszMOLULN23QetoXwYapoZ1bvHQ</pre>
+\unrestrict 5cDTiADS68MaGuvtc3hsxUByd9rW3t7RjgGqVB6uUqhYekXiFRAwPf9w0cFqFKd</pre>
     </div>
   </section>
 
   <section>
     <h2>What is next</h2>
     <p class="prose head-note">Stage 4&rsquo;s schema work is done bar
-      <span class="mono">stock</span>. The blocking item is not a migration: it
-      is the grant block above, which has to run before NocoDB is stood up at
-      Stage 5. After that, Stage 7 builds the pipeline against these tables
-      &mdash; and <span class="mono">link.py</span> inherits the confirmation
-      rules from 0007 and 0008, and now the orphaned-preferred-link query
-      that feeds <span class="mono">ops.review_queue</span>.</p>
+      <span class="mono">stock</span>, and the grants that were blocking Stage 5
+      are in. Stage 7 builds the pipeline against these tables &mdash;
+      <span class="mono">link.py</span> inherits the confirmation rules from
+      0007 and 0008, plus the orphaned-preferred-link query that feeds
+      <span class="mono">ops.review_queue</span>. The pricing engine writes
+      <span class="mono">margin_pct</span> as a snapshot and must use the same
+      pack-factor arithmetic the view now uses; a mismatch between the two is
+      the next version of this bug.</p>
   </section>
 
 </div>
