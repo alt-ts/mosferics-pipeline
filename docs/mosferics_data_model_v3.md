@@ -215,6 +215,13 @@ Keyed by channel. Event and trade pricing will not match — different volumes, 
 
 `calculated_price` and `override_price` are separate columns for a reason: a manual price is never wiped by a refresh. `final_price` is `COALESCE(override_price, calculated_price)`.
 
+**Two margins, and they are not the same number.** Hard rule 7 reads as though it forbids `margin_pct`; it does not, because the rule and this column are talking about different quantities:
+
+- **The live margin** — `final_price` against *today's* cost. Derived at query time from the `pricing.cost_basis` join and never stored, because a stored copy goes stale the moment cost moves and then lies about the current price/cost relationship. It has a first-class home: the view **`pricing.live_margins`**. Anyone asking "what is the margin now?" reads the view, never the column.
+- **`margin_pct` — the snapshot** — the margin at the moment the price was calculated, which is precisely what the approval gate judged. A stored *output*, not the stored input rule 7 forbids: you never type a margin and have the system back-solve a price from it.
+
+The snapshot is kept because it cannot be reconstructed. `cost_basis` holds a current cost with no history, so once cost moves, the calc-time cost is gone and `margin_pct` is the only record of what the gate saw. A snapshot of `-8.500` beside a live `38.909` is a real audit story — flagged as a loss-maker when set, healthy against today's lower cost. `pricing.live_margins` returns both side by side (`gross_margin` and `margin_pct_at_calc`) so that comparison is one read.
+
 **Prices are calculated automatically but held for approval — with a materiality threshold.** A full supplier price list can touch thousands of rows. If every change queues for review, the queue gets rubber-stamped and the gate becomes theatre. Rules:
 
 - Change below the threshold (**5%**) → auto-approved, logged

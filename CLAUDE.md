@@ -16,7 +16,10 @@ Read the relevant section before implementing anything in that area.
 5. All schema changes go through Alembic migrations. No ad-hoc DDL, ever.
 6. Secrets live in .env, loaded from environment. Never committed, never hardcoded,
    never printed in logs.
-7. `gross_margin` is derived at query time. It is never a stored input column.
+7. The live gross margin is derived at query time (the `pricing.cost_basis`
+   join, exposed as `pricing.live_margins`) and never stored.
+   `pricing.variant_prices.margin_pct` is the calc-time snapshot the approval
+   gate judged — a stored output, not the stored input this rule forbids.
 8. `handle` is frozen after first Shopify publish. Never regenerate it from a title.
 9. Two sync paths: catalogue sync is human-gated; availability sync is not.
    Never route availability updates through the review queue.

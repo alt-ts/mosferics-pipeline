@@ -400,7 +400,10 @@ Read the relevant section before implementing anything in that area.
 5. All schema changes go through Alembic migrations. No ad-hoc DDL, ever.
 6. Secrets live in .env, loaded from environment. Never committed, never hardcoded,
    never printed in logs.
-7. `gross_margin` is derived at query time. It is never a stored input column.
+7. The live gross margin is derived at query time (the `pricing.cost_basis`
+   join, exposed as `pricing.live_margins`) and never stored.
+   `pricing.variant_prices.margin_pct` is the calc-time snapshot the approval
+   gate judged — a stored output, not the stored input this rule forbids.
 8. `handle` is frozen after first Shopify publish. Never regenerate it from a title.
 9. Two sync paths: catalogue sync is human-gated; availability sync is not.
    Never route availability updates through the review queue.
@@ -443,7 +446,7 @@ Build the schemas in dependency order, one migration per schema:
 3. `catalog` (taxonomy, brands, collections, ranges, products, variants, metadata, images, documents, compliance, relations) — `documents` must precede `compliance`; `compliance.evidence_document_id` is a real FK to it
 4. `link`
 5. `ops` — **swapped ahead of `pricing`**: `pricing.variant_prices.channel_id` is a real FK to `ops.channels`, so the other order cannot be built without deferring a constraint. Nothing in `ops` depends on `pricing`, so the swap costs nothing
-6. `pricing`
+6. `pricing` — ships the `pricing.live_margins` view alongside the three tables. It is the canonical answer to "what is the margin now?" (rule 7's derived-at-query-time margin); `variant_prices.margin_pct` is the calc-time snapshot only, and carries a column comment saying so
 7. `stock` — defer if your stocked list is short
 
 **When building `link.py`, confirm the auto-created links.** Migration 0007 requires `is_preferred` to imply `status = 'confirmed'`, so the auto-created 1:1 link every single-source item gets must be written as `status = 'confirmed'`. It does not have to be signed by hand: migration 0008 added a trigger that fills `confirmed_by` and `confirmed_at` whenever a row is confirmed without a confirmer, so the pipeline can either write `confirmed_by = 'pipeline'` explicitly (which is preserved) or leave both null and sign as `mos_pipeline`. The one remaining trap is writing `confirmed_by` without `confirmed_at` — that fails the pairing constraint, because the signing trigger only fires when `confirmed_by` is null. Leaving `status` at its `proposed` default is the other trap, and the quiet one: it silently drops `is_preferred` on every single-source variant. See the `is_preferred` section of `mosferics_data_model_v3.md` for the full table.
