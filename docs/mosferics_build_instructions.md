@@ -19,6 +19,7 @@ Stages 0 and 9 are paper exercises. Everything else is build. Stage 0 is not opt
 | Delivery promise engine | Post-pilot | Config decided + seeded at Stage 4; logic deferred — see spec below |
 | Stocked SKU list | Deferred — see note | **Deferred** |
 | the reviewer's edit permissions | Stage 5 | **Done — the reviewer edits `pricing.override_price`** |
+| Role grants applied to live | Stage 5 | **Open — none applied yet, in any schema; see Stage 4** |
 | Alcohol in range | — | **Done — Mosferics will not sell alcohol** |
 | Compliance evidence policy after dropping DoC | Stage 6 | **Done — supplier data sheets are the evidence** |
 | Knife age restriction | Stage 6 | **Done — all knives are 18+** |
@@ -222,11 +223,15 @@ The **table-level grants** are applied *after* Stage 4 creates the tables — ru
 ```sql
 GRANT USAGE ON SCHEMA <schema> TO mos_pipeline;
 GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA <schema> TO mos_pipeline;
-ALTER DEFAULT PRIVILEGES IN SCHEMA <schema>
+ALTER DEFAULT PRIVILEGES FOR ROLE mos_owner IN SCHEMA <schema>
   GRANT SELECT, INSERT, UPDATE ON TABLES TO mos_pipeline;   -- future tables inherit
 ```
 
 `ALTER DEFAULT PRIVILEGES` is the part people forget — without it, tables created by later migrations carry no grant and the pipeline breaks after each schema change.
+
+**`FOR ROLE mos_owner` is not optional, and it is the trap inside the trap.** Default privileges attach to *the role that will create the object*, defaulting to whoever runs the statement. Run this block as `postgres` without `FOR ROLE`, and it records `postgres` as the creating role — but Alembic connects as `mos_owner`, so every table a later migration creates is still born with no grant. The statement succeeds, `pg_default_acl` gains a row, and the thing it was supposed to prevent happens anyway. Verified on scratch: run as `mos_owner`, the row reads `defaclrole = mos_owner`; that is the value it has to have, whoever types it.
+
+**Views are covered by the same grants, no extra statement needed.** `ALL TABLES IN SCHEMA` and `ON TABLES` both include views — verified on scratch, where `pricing.live_margins` picked up `mos_pipeline=r` from the plain `ALL TABLES` grant alongside the three real tables. Worth knowing because a view runs with *its owner's* rights, so `SELECT` on `pricing.live_margins` is enough on its own: a role granted the view but not `pricing.cost_basis` can read the margin without being able to read the cost it was computed from. That is a lever if the reviewer should ever see margin without seeing supplier cost — not the current setup, just noted where it will be looked for.
 
 The template above grants `mos_pipeline`. **Repeat it for `mos_nocodb`** — it's the role NocoDB connects as in Stage 5, so without these grants NocoDB opens but shows nothing — and, more narrowly, for `mos_trigger` (only the tables an import touches). Match each role to its rights in the table above; `mos_nocodb` gets no `DELETE` on `raw`.
 
@@ -518,6 +523,10 @@ Author the real table definitions with Claude Code, reading the matching `mosfer
 Every migration must have a working `downgrade()`. Test each one up, down, and up again on a scratch database before moving on.
 
 **Apply the deferred role grants now.** The `GRANT …` / `ALTER DEFAULT PRIVILEGES …` block from Stage 2 was parked until here — run it per schema now that the tables exist. Skip it and `mos_pipeline` / `mos_nocodb` will connect fine but be unable to read or write anything.
+
+> **Status as of 2026-08-17: still not done.** Checked on live at migration `0010` — `relacl` is empty on every table in every schema, and `pg_default_acl` has no rows at all. Nothing but `mos_owner` can read or write anything, in any schema; this is not specific to `ops` or `pricing`, it is the whole database. It has gone unnoticed because everything so far has run as `mos_owner`. The first thing that will trip over it is NocoDB at Stage 5, which will connect as `mos_nocodb` and show an empty database.
+>
+> When this is picked up, the six schemas to repeat the block for are `raw`, `supplier`, `catalog`, `link`, `ops`, `pricing` — plus `stock` once it exists. Mind the `FOR ROLE mos_owner` clause and the note on views in Stage 2; both matter here. `pricing.live_margins` needs `SELECT` for the margin to be readable by anyone but the owner, and it is picked up automatically by the `ALL TABLES` grant.
 
 **Done when:** `alembic upgrade head` builds the whole database from empty on a clean instance, `downgrade base` tears it down without error, and the Stage 2 role grants are applied so `mos_pipeline` can actually read/write the tables.
 
