@@ -19,7 +19,7 @@ Stages 0 and 9 are paper exercises. Everything else is build. Stage 0 is not opt
 | Delivery promise engine | Post-pilot | Config decided + seeded at Stage 4; logic deferred — see spec below |
 | Stocked SKU list | Deferred — see note | **Deferred** |
 | the reviewer's edit permissions | Stage 5 | **Done — the reviewer edits `pricing.override_price`** |
-| Role grants applied to live | Stage 5 | **Open — none applied yet, in any schema; see Stage 4** |
+| Role grants applied to live | Stage 5 | **Done — migration 0013, all four roles** |
 | Alcohol in range | — | **Done — Mosferics will not sell alcohol** |
 | Compliance evidence policy after dropping DoC | Stage 6 | **Done — supplier data sheets are the evidence** |
 | Knife age restriction | Stage 6 | **Done — all knives are 18+** |
@@ -218,7 +218,7 @@ EOF
 
 So `.env` only ever holds `mos_owner` (now) and `mos_pipeline` (later) — which is why you only saw `mos_owner`. The other two connect from elsewhere, keeping each credential scoped to its one consumer.
 
-The **table-level grants** are applied *after* Stage 4 creates the tables — run as `postgres` once the schemas exist, repeated per schema (there is no `ALL SCHEMAS` keyword):
+The **table-level grants live in migration `0013`**, not in a snippet run by hand. This is a change from the original plan, and the reason is hard rule 5: `GRANT` is DDL, and "no ad-hoc DDL, ever" does not carve out privileges. It also makes Stage 4's own exit criterion true — `alembic upgrade head` on a clean instance now builds a database that *works*, rather than one only `mos_owner` can use. Run per schema, since there is no `ALL SCHEMAS` keyword. The shape:
 
 ```sql
 GRANT USAGE ON SCHEMA <schema> TO mos_pipeline;
@@ -229,7 +229,13 @@ ALTER DEFAULT PRIVILEGES FOR ROLE mos_owner IN SCHEMA <schema>
 
 `ALTER DEFAULT PRIVILEGES` is the part people forget — without it, tables created by later migrations carry no grant and the pipeline breaks after each schema change.
 
-**`FOR ROLE mos_owner` is not optional, and it is the trap inside the trap.** Default privileges attach to *the role that will create the object*, defaulting to whoever runs the statement. Run this block as `postgres` without `FOR ROLE`, and it records `postgres` as the creating role — but Alembic connects as `mos_owner`, so every table a later migration creates is still born with no grant. The statement succeeds, `pg_default_acl` gains a row, and the thing it was supposed to prevent happens anyway. Verified on scratch: run as `mos_owner`, the row reads `defaclrole = mos_owner`; that is the value it has to have, whoever types it.
+**`FOR ROLE mos_owner` is not optional, and it is the trap inside the trap.** Default privileges attach to *the role that will create the object*, defaulting to whoever runs the statement. Written without `FOR ROLE` and run as `postgres`, it records `postgres` as the creating role — but Alembic connects as `mos_owner`, so every table a later migration creates is still born with no grant. The statement succeeds, `pg_default_acl` gains a row, and the thing it was supposed to prevent happens anyway. `0013` has a test for exactly this: it creates a probe table after the grants and asserts the new table is already readable.
+
+**Three places where `0013` is tighter than the table above**, each because the schema knows something the role table does not:
+
+- **`raw` gets no blanket `UPDATE`** — only `SELECT` and `INSERT`, with `UPDATE (status)` added back on `import_batches` by name. `import_rows` is the audit trail (hard rule 11) and is already immutable by trigger from `0004`; withholding the privilege makes the permission system state the same fact, so the rule survives someone dropping the trigger.
+- **`mos_pipeline` needs `USAGE` on `catalog.mosferics_sku_seq`** — the one sequence not owned by an identity column. `catalog.next_mosferics_sku()` calls `nextval` as the *caller*, not as definer, so without this grant the pipeline allocates no SKUs. It would have failed on the first import and nowhere earlier.
+- **`mos_nocodb` gets column-level `UPDATE` on `pricing.variant_prices`** — `override_price`, `status`, `approved_by`, and nothing else. The Stage 0 register locks the reviewer's price rights to the override; this expresses that in the database rather than trusting the UI not to offer `calculated_price`.
 
 **Views are covered by the same grants, no extra statement needed.** `ALL TABLES IN SCHEMA` and `ON TABLES` both include views — verified on scratch, where `pricing.live_margins` picked up `mos_pipeline=r` from the plain `ALL TABLES` grant alongside the three real tables. Worth knowing because a view runs with *its owner's* rights, so `SELECT` on `pricing.live_margins` is enough on its own: a role granted the view but not `pricing.cost_basis` can read the margin without being able to read the cost it was computed from. That is a lever if the reviewer should ever see margin without seeing supplier cost — not the current setup, just noted where it will be looked for.
 
@@ -451,7 +457,7 @@ Build the schemas in dependency order, one migration per schema:
 3. `catalog` (taxonomy, brands, collections, ranges, products, variants, metadata, images, documents, compliance, relations) — `documents` must precede `compliance`; `compliance.evidence_document_id` is a real FK to it
 4. `link`
 5. `ops` — **swapped ahead of `pricing`**: `pricing.variant_prices.channel_id` is a real FK to `ops.channels`, so the other order cannot be built without deferring a constraint. Nothing in `ops` depends on `pricing`, so the swap costs nothing
-6. `pricing` — ships the `pricing.live_margins` view alongside the three tables. It is the canonical answer to "what is the margin now?" (rule 7's derived-at-query-time margin); `variant_prices.margin_pct` is the calc-time snapshot only, and carries a column comment saying so
+6. `pricing` — ships the `pricing.live_margins` view alongside the three tables. It is the canonical answer to "what is the margin now?" (rule 7's derived-at-query-time margin); `variant_prices.margin_pct` is the calc-time snapshot only, and carries a column comment saying so. **The margin must multiply cost by `base_units_per_variant`** — the cost is per base unit and the price is per variant, so omitting the factor overstates margin on every multi-unit line. `0010` shipped that bug and `0011` fixed it
 7. `stock` — defer if your stocked list is short
 
 **When building `link.py`, confirm the auto-created links.** Migration 0007 requires `is_preferred` to imply `status = 'confirmed'`, so the auto-created 1:1 link every single-source item gets must be written as `status = 'confirmed'`. It does not have to be signed by hand: migration 0008 added a trigger that fills `confirmed_by` and `confirmed_at` whenever a row is confirmed without a confirmer, so the pipeline can either write `confirmed_by = 'pipeline'` explicitly (which is preserved) or leave both null and sign as `mos_pipeline`. The one remaining trap is writing `confirmed_by` without `confirmed_at` — that fails the pairing constraint, because the signing trigger only fires when `confirmed_by` is null. Leaving `status` at its `proposed` default is the other trap, and the quiet one: it silently drops `is_preferred` on every single-source variant. See the `is_preferred` section of `mosferics_data_model_v3.md` for the full table.
@@ -522,11 +528,11 @@ Author the real table definitions with Claude Code, reading the matching `mosfer
 
 Every migration must have a working `downgrade()`. Test each one up, down, and up again on a scratch database before moving on.
 
-**Apply the deferred role grants now.** The `GRANT …` / `ALTER DEFAULT PRIVILEGES …` block from Stage 2 was parked until here — run it per schema now that the tables exist. Skip it and `mos_pipeline` / `mos_nocodb` will connect fine but be unable to read or write anything.
+**The role grants are migration `0013`** — they are no longer a manual step, so there is nothing to remember to run here. See Stage 2 for the shape and the three places it is deliberately tighter than the role table.
 
-> **Status as of 2026-08-17: still not done.** Checked on live at migration `0010` — `relacl` is empty on every table in every schema, and `pg_default_acl` has no rows at all. Nothing but `mos_owner` can read or write anything, in any schema; this is not specific to `ops` or `pricing`, it is the whole database. It has gone unnoticed because everything so far has run as `mos_owner`. The first thing that will trip over it is NocoDB at Stage 5, which will connect as `mos_nocodb` and show an empty database.
+> **Applied to live 17 Aug 2026, at `0013`.** Before that, `relacl` was empty on every table in every schema and `pg_default_acl` had no rows at all: nothing but `mos_owner` could read or write anything, anywhere. It had gone unnoticed because everything so far ran as `mos_owner`, and NocoDB at Stage 5 would have been the first thing to trip over it.
 >
-> When this is picked up, the six schemas to repeat the block for are `raw`, `supplier`, `catalog`, `link`, `ops`, `pricing` — plus `stock` once it exists. Mind the `FOR ROLE mos_owner` clause and the note on views in Stage 2; both matter here. `pricing.live_margins` needs `SELECT` for the margin to be readable by anyone but the owner, and it is picked up automatically by the `ALL TABLES` grant.
+> Six schemas are covered — `raw`, `supplier`, `catalog`, `link`, `ops`, `pricing`. **When `stock` lands, add it to `DATA_SCHEMAS` in `0013`** and grant in the same migration that creates it; a new schema does not inherit anything, because default privileges are per-schema.
 
 **Done when:** `alembic upgrade head` builds the whole database from empty on a clean instance, `downgrade base` tears it down without error, and the Stage 2 role grants are applied so `mos_pipeline` can actually read/write the tables.
 
