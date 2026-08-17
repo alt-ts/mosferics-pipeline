@@ -1,0 +1,1200 @@
+<title>Ops and Pricing 0009&ndash;0010</title>
+<style>
+  :root {
+    --ground: #F4F6F7;
+    --surface: #FFFFFF;
+    --raised: #EAEFF0;
+    --ink: #12181B;
+    --muted: #57686D;
+    --rule: #D8E0E2;
+    --accent: #0E5C68;
+    --accent-soft: #DBEBEE;
+    --ok: #2C6A4F;
+    --ok-soft: #DDEBE3;
+    --open: #8A5A00;
+    --open-soft: #F5EBD8;
+    --code-bg: #101819;
+    --code-ink: #D3E0E2;
+    --code-kw: #7FC8D4;
+    --code-type: #CBBA88;
+    --code-comment: #6B8388;
+    --serif: ui-serif, "Iowan Old Style", "Source Serif 4", Georgia, serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0E1315;
+      --surface: #151C1F;
+      --raised: #1C2528;
+      --ink: #E2E9EA;
+      --muted: #91A4A9;
+      --rule: #253134;
+      --accent: #58BFCC;
+      --accent-soft: #163237;
+      --ok: #74C29A;
+      --ok-soft: #162B22;
+      --open: #DBA94A;
+      --open-soft: #2E2612;
+      --code-bg: #0A1012;
+      --code-ink: #D3E0E2;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0E1315;
+    --surface: #151C1F;
+    --raised: #1C2528;
+    --ink: #E2E9EA;
+    --muted: #91A4A9;
+    --rule: #253134;
+    --accent: #58BFCC;
+    --accent-soft: #163237;
+    --ok: #74C29A;
+    --ok-soft: #162B22;
+    --open: #DBA94A;
+    --open-soft: #2E2612;
+    --code-bg: #0A1012;
+    --code-ink: #D3E0E2;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4rem;
+  }
+
+  .prose { max-width: 40rem; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(2.4rem, 6vw, 3.4rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+    text-wrap: balance;
+    margin: 0.6rem 0 0;
+  }
+
+  h1 .mono {
+    font-family: var(--mono);
+    font-size: 0.82em;
+    letter-spacing: -0.03em;
+  }
+
+  h2 {
+    font-family: var(--serif);
+    font-size: 1.65rem;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    font-weight: 600;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-size: 1rem;
+    line-height: 1.35;
+    font-weight: 650;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  p { margin: 0; }
+  .lede { color: var(--muted); font-size: 1.05rem; margin-top: 1rem; }
+
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .head-note {
+    color: var(--muted);
+    font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .mono { font-family: var(--mono); font-size: 0.9em; }
+
+  /* ---------- migration chain: order is real information here ---------- */
+  .chain {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0;
+    margin: 0;
+  }
+
+  .chain li {
+    flex: 1 1 8rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 0.7rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .chain .rev {
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+
+  .chain .what {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .chain li.now {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+
+  .chain li.now .rev { color: var(--accent); font-weight: 700; }
+  .chain li.now .what { color: var(--ink); }
+
+  /* ---------- verification tiles ---------- */
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .tile {
+    background: var(--surface);
+    padding: 1.15rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .tile .figure {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+
+  .tile .label {
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: var(--muted);
+  }
+
+  .tile .verdict {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ok);
+  }
+
+  /* ---------- judgement calls ---------- */
+  .calls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    gap: 0.75rem;
+  }
+
+  .call {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 1.15rem 1.2rem 1.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .call p { font-size: 0.88rem; color: var(--muted); }
+
+  .chip {
+    align-self: flex-start;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 2px;
+  }
+
+  .call.open { border-left: 2px solid var(--open); }
+  .call.open .chip { background: var(--open-soft); color: var(--open); }
+  .call.record .chip { background: var(--raised); color: var(--muted); }
+
+  /* ---------- table matrix ---------- */
+  .scroll {
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    background: var(--surface);
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.87rem;
+  }
+
+  th, td {
+    text-align: right;
+    padding: 0.5rem 0.9rem;
+    border-bottom: 1px solid var(--rule);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  th {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  th:first-child, td.name { text-align: left; }
+  td.name { color: var(--ink); }
+  tr.total td { border-bottom: none; color: var(--muted); font-weight: 600; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ---------- DDL panel ---------- */
+  .ddl {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .ddl-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid #23302f;
+    background: #0B1214;
+  }
+
+  .ddl-bar .cmd {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: #8FA6AA;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .ddl-bar .count {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: #6B8388;
+  }
+
+  .ddl pre {
+    margin: 0;
+    padding: 1.1rem 1rem 1.4rem;
+    overflow-x: auto;
+    max-height: 44rem;
+    overflow-y: auto;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    line-height: 1.65;
+    color: var(--code-ink);
+    tab-size: 4;
+  }
+
+  .ddl .k { color: var(--code-kw); }
+  .ddl .t { color: var(--code-type); }
+  .ddl .c { color: var(--code-comment); font-style: italic; }
+
+  /* ---------- next ---------- */
+  .next {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .next li {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 0.8rem 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.7rem;
+    align-items: baseline;
+    font-size: 0.9rem;
+  }
+
+  .next .step {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--accent);
+    min-width: 4.5rem;
+  }
+
+  .next .detail { color: var(--muted); font-size: 0.85rem; flex: 1 1 14rem; }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 0;
+  }
+
+  a { color: var(--accent); }
+  a:focus-visible, .ddl pre:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 40rem) {
+    .wrap { padding: 2.5rem 1rem 4rem; gap: 3rem; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Migrations 0009&ndash;0010 &middot; applied to live 17 Aug 2026</div>
+    <h1>The <span class="mono">ops</span> and <span class="mono">pricing</span>
+      schemas, as Postgres now holds them</h1>
+    <p class="lede">Ten tables and one view, closing Stage 4's schema work. The
+      cycle turned on a single question &mdash; whether a stored
+      <span class="mono">margin_pct</span> breaks hard rule 7 &mdash; and the
+      answer reshaped both the migration and the rule.</p>
+  </header>
+
+  <section>
+    <h2>Where the chain stands</h2>
+    <ol class="chain">
+      <li><span class="rev">0005</span><span class="what">catalog</span></li>
+      <li><span class="rev">0006</span><span class="what">link</span></li>
+      <li><span class="rev">0007</span><span class="what">preferred-link rules</span></li>
+      <li><span class="rev">0008</span><span class="what">signed confirmations</span></li>
+      <li><span class="rev">0009</span><span class="what">ops</span></li>
+      <li class="now"><span class="rev">0010</span><span class="what">pricing</span></li>
+    </ol>
+    <p class="head-note">Live and scratch are both at
+      <span class="mono">0010</span>. Every table is empty except
+      <span class="mono">ops.channels</span> (the Trade store) and
+      <span class="mono">ops.delivery_config</span> (Tue/Wed/Thu, 12:00
+      Europe/London, one handling day). Remaining in Stage 4:
+      <span class="mono">stock</span> if it is wanted before the pilot, and the
+      role grants below.</p>
+  </section>
+
+  <section>
+    <h2>Two margins, not one</h2>
+    <p class="prose head-note">Hard rule 7 says the gross margin is derived at
+      query time and never stored. The data model specifies a stored
+      <span class="mono">margin_pct</span> on
+      <span class="mono">variant_prices</span>. Both documents were right and
+      neither said which margin it meant.</p>
+        <div class="calls">
+      <article class="call record">
+        <div class="chip">the live margin</div>
+        <h3>final_price against today&rsquo;s cost</h3>
+        <p>This is the one rule 7 is about. A stored copy goes stale the moment cost moves and then lies about the current relationship between price and cost &mdash; which is the failure the rule exists to prevent. It now has a name of its own: <span class="mono">pricing.live_margins</span>.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">the snapshot</div>
+        <h3>The margin the approval gate judged</h3>
+        <p><span class="mono">margin_pct</span> records the margin at the moment the price was calculated. It is a stored <em>output</em>, not the stored input rule 7 forbids &mdash; nobody types a margin and has the system back-solve a price from it.</p>
+      </article>
+    </div>
+    <p class="prose head-note">The snapshot is kept because it cannot be
+      rebuilt. <span class="mono">cost_basis</span> holds a current cost with no
+      history, so once cost moves, the calc-time cost is gone and
+      <span class="mono">margin_pct</span> is the only record of what the gate
+      actually saw. From the scratch test, both figures for one variant:</p>
+    <div class="scroll">
+      <table>
+        <thead>
+          <tr><th>variant</th><th>final_price</th><th>cost now</th>
+            <th>gross_margin</th><th>margin_pct_at_calc</th><th>status</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="mono">healthy</td><td class="mono">40.00</td>
+            <td class="mono">28.0000</td><td class="mono">30.000</td>
+            <td class="mono">30.000</td><td class="mono">auto_approved</td></tr>
+          <tr><td class="mono">lossmaker</td><td class="mono">55.00</td>
+            <td class="mono">33.6000</td><td class="mono">38.909</td>
+            <td class="mono">&minus;8.500</td><td class="mono">approved</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="prose head-note">The second row is the whole argument: a price
+      flagged as a loss-maker when it was set, healthy against today&rsquo;s
+      lower cost. Drop the column and that story is unrecoverable.</p>
+        <div class="calls">
+      <article class="call record">
+        <div class="chip">left join</div>
+        <h3>An uncosted variant must not vanish</h3>
+        <p>The view joins <span class="mono">cost_basis</span> with a LEFT JOIN. A variant priced with no cost row has an <em>unknown</em> margin, and NULL says so; an inner join would drop the row instead, so a count of the view would agree with nothing and quietly hide the gap. The test asserts the view and the price table return the same number of rows.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">nullif</div>
+        <h3>A free line does not divide by zero</h3>
+        <p><span class="mono">final_price = 0</span> is legal — the CHECK bars negatives, not zero — and a zero denominator would take the whole query down. <span class="mono">NULLIF(final_price, 0)</span> returns NULL for that row and leaves the rest of the result intact.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">column comment</div>
+        <h3>The snapshot says what it is, in psql</h3>
+        <p><span class="mono">COMMENT ON COLUMN</span> puts the warning where <span class="mono">\d+</span> shows it, so the distinction survives the moment everyone has forgotten this conversation. The name <span class="mono">margin_pct_at_calc</span> was offered and turned down as unnecessary once the comment and the view exist.</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Judgement calls in <span class="mono">ops</span></h2>
+    <div class="calls">
+      <article class="call record">
+        <div class="chip">cardinality</div>
+        <h3>A delivery config with no delivery days</h3>
+        <p>The first version of this constraint read <span class="mono">array_length(delivery_days, 1) &gt; 0</span> and let an empty array straight through: <span class="mono">array_length</span> returns NULL rather than 0 for an empty array, and a CHECK passes on NULL. It was caught on scratch only because the test showed a ROLLBACK with no ERROR beside it. <span class="mono">cardinality()</span> returns 0 and the constraint bites.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">single row</div>
+        <h3>A config table that cannot grow a second row</h3>
+        <p><span class="mono">CHECK (config_id = 1)</span> makes <span class="mono">delivery_config</span> a one-row table by construction. The alternative — a table with an <span class="mono">active</span> flag — invites two active rows and a question about which one the promise engine read. There is only ever one delivery promise, so the schema says so.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">containment</div>
+        <h3>Weekday names without an enum type</h3>
+        <p><span class="mono">delivery_days &lt;@ ARRAY['mon', …]</span> pins the values with a containment test rather than a Postgres enum. An enum would need its own migration to change and orders its values implicitly; the array is checked just as strictly and stays ordinary text the pipeline can compare without a cast.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">biconditional</div>
+        <h3>A finished run cannot still say running</h3>
+        <p><span class="mono">(status = 'running') = (finished_at IS NULL)</span> is an equality between two booleans, not an implication, so it catches both halves: a run marked succeeded with no finish time, and a run still marked running that has one. One constraint, both mistakes.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">three constraints</div>
+        <h3>The review queue is honest in both directions</h3>
+        <p><span class="mono">closed_has_resolver</span>, <span class="mono">open_is_unresolved</span> and <span class="mono">resolution_complete</span> look like one rule written three times. They are not: the first stops a resolved row with nobody's name on it, the second stops an open row that already carries a resolver, and the third keeps the who and the when together. Each names a different mistake, so each gives a different error.</p>
+      </article>
+      <article class="call open">
+        <div class="chip">for link.py</div>
+        <h3>Orphaned preferred links must surface here</h3>
+        <p>Carried forward from 0007 and not yet built: a confirmed variant with zero preferred links is a real gap — the demote trigger can clear the flag without anything raising — and <span class="mono">ops.review_queue</span> is where it has to appear, under <span class="mono">entity_type = 'variant_link'</span>. The table now exists to receive it; the query that finds them is a Stage 7 job.</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Judgement calls in <span class="mono">pricing</span></h2>
+    <div class="calls">
+      <article class="call record">
+        <div class="chip">build order</div>
+        <h3>ops moved ahead of pricing to get a real FK</h3>
+        <p>The build doc had pricing at 0009 and ops at 0010, which would have left <span class="mono">variant_prices.channel_id</span> pointing at a table that did not exist. The choice was a deferred constraint or a swap. Nothing in ops depends on pricing, so the swap cost nothing and the foreign key is real from the first day.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">two directions</div>
+        <h3>vat_rate is pinned by the type and the CHECK</h3>
+        <p><span class="mono">numeric(5,4)</span> caps at 9.9999, so a bare <span class="mono">20</span> for 20% is rejected by the type — the classic 0.20-versus-20 slip. The CHECK then earns its keep on what the type still allows: negatives, and the 1–10 band where a stray <span class="mono">5.0</span> would mean 500%. Overlapping at the top end, not redundant.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">asymmetric</div>
+        <h3>margin_pct is bounded above but not below</h3>
+        <p>Gross margin cannot reach 100% — that would need zero cost — so the upper bound is a real fact about the arithmetic. There is deliberately no lower bound: a price below cost gives a negative margin, and that is precisely the case the 15% floor exists to catch. Constraining it away would hide the thing the gate is for.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">one constraint</div>
+        <h3>Each pricing method carries its own range</h3>
+        <p><span class="mono">ck_rules_value_matches_method</span> is a single disjunction covering all three methods, because the legal range for <span class="mono">value</span> depends on which method names it: a markup is any non-negative number, a fixed margin must sit under 100, a target price must be positive. Three constraints would have let a row satisfy the wrong one.</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>Found while checking the view: nothing has any grants</h2>
+        <div class="calls">
+      <article class="call open">
+        <div class="chip">blocks stage 5</div>
+        <h3>No role can read anything, in any schema</h3>
+        <p>Checked on live at 0010: <span class="mono">relacl</span> is empty on every table in every schema and <span class="mono">pg_default_acl</span> has no rows at all. The Stage 2 grant block was deferred to Stage 4 and never run. It has gone unnoticed because everything so far connects as <span class="mono">mos_owner</span>; NocoDB is what breaks first, connecting as <span class="mono">mos_nocodb</span> and showing an empty database.</p>
+      </article>
+      <article class="call open">
+        <div class="chip">doc corrected</div>
+        <h3>FOR ROLE mos_owner is not optional</h3>
+        <p>Default privileges attach to the role that will <em>create</em> the object, defaulting to whoever runs the statement. The doc said to run the block as <span class="mono">postgres</span>, which would have recorded <span class="mono">postgres</span> &mdash; while Alembic creates as <span class="mono">mos_owner</span>. Every later migration&rsquo;s tables would still be born ungranted, and the statement guarding against exactly that would have been the thing that failed.</p>
+      </article>
+      <article class="call record">
+        <div class="chip">verified</div>
+        <h3>Views need no separate grant</h3>
+        <p><span class="mono">ALL TABLES IN SCHEMA</span> covers views: on scratch, <span class="mono">live_margins</span> picked up <span class="mono">mos_pipeline=r</span> alongside the three real tables. Worth knowing because a view runs with its <em>owner&rsquo;s</em> rights &mdash; so the margin can be granted to someone who is not granted the cost table underneath it.</p>
+      </article>
+    </div>
+  </section>
+
+  <section>
+    <h2>How it was verified</h2>
+    <ol class="chain">
+      <li><span class="rev">1</span><span class="what">0010 down / up / down / up on scratch</span></li>
+      <li><span class="rev">2</span><span class="what">full ten-migration rebuild from base</span></li>
+      <li><span class="rev">3</span><span class="what">pricing_test.sql, 8 cases</span></li>
+      <li><span class="rev">4</span><span class="what">margin_view_test.sql, 7 cases</span></li>
+      <li class="now"><span class="rev">5</span><span class="what">applied to live, dumped, compared</span></li>
+    </ol>
+    <p class="head-note">The view test covers the audit story above, the
+      uncosted-variant row count, the zero-price division, an override moving
+      the live margin while the snapshot stays put, and that the view rejects
+      writes &mdash; it is not auto-updatable, which is the desired answer.</p>
+  </section>
+
+  <section>
+    <h2>The DDL, read back from live</h2>
+    <div class="ddl">
+      <div class="ddl-bar">
+        <div class="cmd">pg_dump -s -n ops mosferics</div>
+        <div class="count">359 lines</div>
+      </div>
+      <pre tabindex="0"><span class="c">--</span>
+<span class="c">-- PostgreSQL database dump</span>
+<span class="c">--</span>
+
+\restrict BpG9k9VDVyUbPVjwXotAJgUCufHXx6H6gf0Yg4x4eMwdd9KuxNeJ37drYPAF1hb
+
+<span class="c">-- Dumped from database version 16.14 (Ubuntu 16.14-1.pgdg22.04+1)</span>
+<span class="c">-- Dumped by pg_dump version 16.14 (Ubuntu 16.14-1.pgdg22.04+1)</span>
+
+<span class="k">SET</span> statement_timeout = 0;
+<span class="k">SET</span> lock_timeout = 0;
+<span class="k">SET</span> idle_in_transaction_session_timeout = 0;
+<span class="k">SET</span> client_encoding = &#x27;UTF8&#x27;;
+<span class="k">SET</span> standard_conforming_strings = on;
+<span class="k">SELECT</span> pg_catalog.set_config(&#x27;search_path&#x27;, &#x27;&#x27;, false);
+<span class="k">SET</span> check_function_bodies = false;
+<span class="k">SET</span> xmloption = content;
+<span class="k">SET</span> client_min_messages = warning;
+<span class="k">SET</span> row_security = off;
+
+<span class="c">--</span>
+<span class="c">-- Name: ops; Type: SCHEMA; Schema: -; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">SCHEMA</span> ops;
+
+
+<span class="k">ALTER SCHEMA</span> ops <span class="k">OWNER TO</span> mos_owner;
+
+<span class="k">SET</span> default_tablespace = &#x27;&#x27;;
+
+<span class="k">SET</span> default_table_access_method = heap;
+
+<span class="c">--</span>
+<span class="c">-- Name: channel_publish; Type: TABLE; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> ops.channel_publish (
+    variant_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    channel_id <span class="t">integer</span> <span class="k">NOT NULL</span>,
+    publish_status <span class="t">text</span> <span class="k">DEFAULT</span> &#x27;not_published&#x27;::<span class="t">text</span> <span class="k">NOT NULL</span>,
+    fulfilment_mode <span class="t">text</span>,
+    <span class="k">CONSTRAINT</span> ck_channel_publish_fulfilment_mode <span class="k">CHECK</span> (((fulfilment_mode <span class="k">IS</span> <span class="k">NULL</span>) <span class="k">OR</span> (fulfilment_mode = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;stocked&#x27;::<span class="t">text</span>, &#x27;on_demand&#x27;::<span class="t">text</span>, &#x27;dropship&#x27;::<span class="t">text</span>])))),
+    <span class="k">CONSTRAINT</span> ck_channel_publish_status <span class="k">CHECK</span> ((publish_status = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;not_published&#x27;::<span class="t">text</span>, &#x27;pending&#x27;::<span class="t">text</span>, &#x27;published&#x27;::<span class="t">text</span>])))
+);
+
+
+<span class="k">ALTER TABLE</span> ops.channel_publish <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: channels; Type: TABLE; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> ops.channels (
+    channel_id <span class="t">integer</span> <span class="k">NOT NULL</span>,
+    name <span class="t">text</span> <span class="k">NOT NULL</span>,
+    type <span class="t">text</span> <span class="k">NOT NULL</span>,
+    shopify_domain <span class="t">text</span>,
+    active <span class="t">boolean</span> <span class="k">DEFAULT</span> true <span class="k">NOT NULL</span>,
+    <span class="k">CONSTRAINT</span> ck_channels_type <span class="k">CHECK</span> ((type = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;trade_store&#x27;::<span class="t">text</span>, &#x27;event_store&#x27;::<span class="t">text</span>])))
+);
+
+
+<span class="k">ALTER TABLE</span> ops.channels <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: channels_channel_id_seq; Type: SEQUENCE; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE</span> ops.channels <span class="k">ALTER COLUMN</span> channel_id <span class="k">ADD</span> <span class="k">GENERATED BY DEFAULT AS IDENTITY</span> (
+    <span class="k">SEQUENCE</span> NAME ops.channels_channel_id_seq
+    <span class="k">START WITH</span> 1
+    <span class="k">INCREMENT BY</span> 1
+    <span class="k">NO MINVALUE</span>
+    <span class="k">NO MAXVALUE</span>
+    <span class="k">CACHE</span> 1
+);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: delivery_config; Type: TABLE; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> ops.delivery_config (
+    config_id <span class="t">smallint</span> <span class="k">NOT NULL</span>,
+    delivery_days <span class="t">text</span>[] <span class="k">NOT NULL</span>,
+    cutoff_time <span class="t">time without time zone</span> <span class="k">NOT NULL</span>,
+    timezone <span class="t">text</span> <span class="k">NOT NULL</span>,
+    handling_days <span class="t">integer</span> <span class="k">NOT NULL</span>,
+    holiday_calendar <span class="t">date</span>[] <span class="k">DEFAULT</span> &#x27;{}&#x27;::<span class="t">date</span>[] <span class="k">NOT NULL</span>,
+    <span class="k">CONSTRAINT</span> ck_delivery_config_handling_days_not_negative <span class="k">CHECK</span> ((handling_days &gt;= 0)),
+    <span class="k">CONSTRAINT</span> ck_delivery_config_has_a_delivery_day <span class="k">CHECK</span> ((<span class="k">cardinality</span>(delivery_days) &gt; 0)),
+    <span class="k">CONSTRAINT</span> ck_delivery_config_single_row <span class="k">CHECK</span> ((config_id = 1)),
+    <span class="k">CONSTRAINT</span> ck_delivery_config_weekday_names <span class="k">CHECK</span> ((delivery_days &lt;@ <span class="k">ARRAY</span>[&#x27;mon&#x27;::<span class="t">text</span>, &#x27;tue&#x27;::<span class="t">text</span>, &#x27;wed&#x27;::<span class="t">text</span>, &#x27;thu&#x27;::<span class="t">text</span>, &#x27;fri&#x27;::<span class="t">text</span>, &#x27;sat&#x27;::<span class="t">text</span>, &#x27;sun&#x27;::<span class="t">text</span>]))
+);
+
+
+<span class="k">ALTER TABLE</span> ops.delivery_config <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: metafield_map; Type: TABLE; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> ops.metafield_map (
+    internal_key <span class="t">text</span> <span class="k">NOT NULL</span>,
+    namespace <span class="t">text</span> <span class="k">NOT NULL</span>,
+    shopify_key <span class="t">text</span> <span class="k">NOT NULL</span>,
+    shopify_type <span class="t">text</span> <span class="k">NOT NULL</span>,
+    owner_type <span class="t">text</span> <span class="k">NOT NULL</span>,
+    active <span class="t">boolean</span> <span class="k">DEFAULT</span> true <span class="k">NOT NULL</span>,
+    <span class="k">CONSTRAINT</span> ck_metafield_map_owner_type <span class="k">CHECK</span> ((owner_type = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;product&#x27;::<span class="t">text</span>, &#x27;variant&#x27;::<span class="t">text</span>])))
+);
+
+
+<span class="k">ALTER TABLE</span> ops.metafield_map <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: pipeline_runs; Type: TABLE; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> ops.pipeline_runs (
+    run_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    supplier_id <span class="t">integer</span>,
+    started_at <span class="t">timestamp with time zone</span> <span class="k">DEFAULT</span> now() <span class="k">NOT NULL</span>,
+    finished_at <span class="t">timestamp with time zone</span>,
+    status <span class="t">text</span> <span class="k">DEFAULT</span> &#x27;running&#x27;::<span class="t">text</span> <span class="k">NOT NULL</span>,
+    summary <span class="t">jsonb</span> <span class="k">DEFAULT</span> &#x27;{}&#x27;::<span class="t">jsonb</span> <span class="k">NOT NULL</span>,
+    <span class="k">CONSTRAINT</span> ck_pipeline_runs_finish_matches_status <span class="k">CHECK</span> (((status = &#x27;running&#x27;::<span class="t">text</span>) = (finished_at <span class="k">IS</span> <span class="k">NULL</span>))),
+    <span class="k">CONSTRAINT</span> ck_pipeline_runs_finished_after_started <span class="k">CHECK</span> (((finished_at <span class="k">IS</span> <span class="k">NULL</span>) <span class="k">OR</span> (finished_at &gt;= started_at))),
+    <span class="k">CONSTRAINT</span> ck_pipeline_runs_status <span class="k">CHECK</span> ((status = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;running&#x27;::<span class="t">text</span>, &#x27;succeeded&#x27;::<span class="t">text</span>, &#x27;failed&#x27;::<span class="t">text</span>])))
+);
+
+
+<span class="k">ALTER TABLE</span> ops.pipeline_runs <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: pipeline_runs_run_id_seq; Type: SEQUENCE; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE</span> ops.pipeline_runs <span class="k">ALTER COLUMN</span> run_id <span class="k">ADD</span> <span class="k">GENERATED BY DEFAULT AS IDENTITY</span> (
+    <span class="k">SEQUENCE</span> NAME ops.pipeline_runs_run_id_seq
+    <span class="k">START WITH</span> 1
+    <span class="k">INCREMENT BY</span> 1
+    <span class="k">NO MINVALUE</span>
+    <span class="k">NO MAXVALUE</span>
+    <span class="k">CACHE</span> 1
+);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: review_queue; Type: TABLE; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> ops.review_queue (
+    queue_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    entity_type <span class="t">text</span> <span class="k">NOT NULL</span>,
+    entity_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    issue_type <span class="t">text</span> <span class="k">NOT NULL</span>,
+    status <span class="t">text</span> <span class="k">DEFAULT</span> &#x27;open&#x27;::<span class="t">text</span> <span class="k">NOT NULL</span>,
+    assigned_to <span class="t">text</span>,
+    created_at <span class="t">timestamp with time zone</span> <span class="k">DEFAULT</span> now() <span class="k">NOT NULL</span>,
+    resolved_by <span class="t">text</span>,
+    resolved_at <span class="t">timestamp with time zone</span>,
+    <span class="k">CONSTRAINT</span> ck_review_queue_closed_has_resolver <span class="k">CHECK</span> (((status = &#x27;open&#x27;::<span class="t">text</span>) <span class="k">OR</span> (resolved_by <span class="k">IS</span> <span class="k">NOT NULL</span>))),
+    <span class="k">CONSTRAINT</span> ck_review_queue_entity_type <span class="k">CHECK</span> ((entity_type = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;product_metadata&#x27;::<span class="t">text</span>, &#x27;variant_link&#x27;::<span class="t">text</span>, &#x27;variant_price&#x27;::<span class="t">text</span>, &#x27;category_map&#x27;::<span class="t">text</span>, &#x27;vocabulary&#x27;::<span class="t">text</span>, &#x27;image&#x27;::<span class="t">text</span>]))),
+    <span class="k">CONSTRAINT</span> ck_review_queue_open_is_unresolved <span class="k">CHECK</span> (((status &lt;&gt; &#x27;open&#x27;::<span class="t">text</span>) <span class="k">OR</span> (resolved_by <span class="k">IS</span> <span class="k">NULL</span>))),
+    <span class="k">CONSTRAINT</span> ck_review_queue_resolution_complete <span class="k">CHECK</span> (((resolved_by <span class="k">IS</span> <span class="k">NULL</span>) = (resolved_at <span class="k">IS</span> <span class="k">NULL</span>))),
+    <span class="k">CONSTRAINT</span> ck_review_queue_status <span class="k">CHECK</span> ((status = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;open&#x27;::<span class="t">text</span>, &#x27;resolved&#x27;::<span class="t">text</span>, &#x27;dismissed&#x27;::<span class="t">text</span>])))
+);
+
+
+<span class="k">ALTER TABLE</span> ops.review_queue <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: review_queue_queue_id_seq; Type: SEQUENCE; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE</span> ops.review_queue <span class="k">ALTER COLUMN</span> queue_id <span class="k">ADD</span> <span class="k">GENERATED BY DEFAULT AS IDENTITY</span> (
+    <span class="k">SEQUENCE</span> NAME ops.review_queue_queue_id_seq
+    <span class="k">START WITH</span> 1
+    <span class="k">INCREMENT BY</span> 1
+    <span class="k">NO MINVALUE</span>
+    <span class="k">NO MAXVALUE</span>
+    <span class="k">CACHE</span> 1
+);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: shopify_sync; Type: TABLE; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> ops.shopify_sync (
+    channel_id <span class="t">integer</span> <span class="k">NOT NULL</span>,
+    entity <span class="t">text</span> <span class="k">NOT NULL</span>,
+    entity_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    shopify_gid <span class="t">text</span>,
+    shopify_handle <span class="t">text</span>,
+    last_synced <span class="t">timestamp with time zone</span>,
+    payload_hash <span class="t">text</span>,
+    status <span class="t">text</span> <span class="k">DEFAULT</span> &#x27;pending&#x27;::<span class="t">text</span> <span class="k">NOT NULL</span>,
+    <span class="k">CONSTRAINT</span> ck_shopify_sync_entity <span class="k">CHECK</span> ((entity = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;product&#x27;::<span class="t">text</span>, &#x27;variant&#x27;::<span class="t">text</span>, &#x27;collection&#x27;::<span class="t">text</span>, &#x27;metaobject&#x27;::<span class="t">text</span>]))),
+    <span class="k">CONSTRAINT</span> ck_shopify_sync_status <span class="k">CHECK</span> ((status = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;pending&#x27;::<span class="t">text</span>, &#x27;synced&#x27;::<span class="t">text</span>, &#x27;failed&#x27;::<span class="t">text</span>])))
+);
+
+
+<span class="k">ALTER TABLE</span> ops.shopify_sync <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: channels channels_pkey; Type: CONSTRAINT; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> ops.channels
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> channels_pkey <span class="k">PRIMARY KEY</span> (channel_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: delivery_config delivery_config_pkey; Type: CONSTRAINT; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> ops.delivery_config
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> delivery_config_pkey <span class="k">PRIMARY KEY</span> (config_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: pipeline_runs pipeline_runs_pkey; Type: CONSTRAINT; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> ops.pipeline_runs
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> pipeline_runs_pkey <span class="k">PRIMARY KEY</span> (run_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: channel_publish pk_channel_publish; Type: CONSTRAINT; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> ops.channel_publish
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> pk_channel_publish <span class="k">PRIMARY KEY</span> (variant_id, channel_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: metafield_map pk_metafield_map; Type: CONSTRAINT; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> ops.metafield_map
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> pk_metafield_map <span class="k">PRIMARY KEY</span> (internal_key, owner_type);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: shopify_sync pk_shopify_sync; Type: CONSTRAINT; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> ops.shopify_sync
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> pk_shopify_sync <span class="k">PRIMARY KEY</span> (channel_id, entity, entity_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: review_queue review_queue_pkey; Type: CONSTRAINT; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> ops.review_queue
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> review_queue_pkey <span class="k">PRIMARY KEY</span> (queue_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: channels uq_channels_name; Type: CONSTRAINT; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> ops.channels
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> uq_channels_name <span class="k">UNIQUE</span> (name);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: metafield_map uq_metafield_map_target; Type: CONSTRAINT; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> ops.metafield_map
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> uq_metafield_map_target <span class="k">UNIQUE</span> (namespace, shopify_key, owner_type);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_channel_publish_channel_status; Type: INDEX; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_channel_publish_channel_status <span class="k">ON</span> ops.channel_publish <span class="k">USING btree</span> (channel_id, publish_status);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_pipeline_runs_supplier_started; Type: INDEX; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_pipeline_runs_supplier_started <span class="k">ON</span> ops.pipeline_runs <span class="k">USING btree</span> (supplier_id, started_at);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_review_queue_entity; Type: INDEX; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_review_queue_entity <span class="k">ON</span> ops.review_queue <span class="k">USING btree</span> (entity_type, entity_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_review_queue_status_type; Type: INDEX; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_review_queue_status_type <span class="k">ON</span> ops.review_queue <span class="k">USING btree</span> (status, entity_type);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_shopify_sync_gid; Type: INDEX; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_shopify_sync_gid <span class="k">ON</span> ops.shopify_sync <span class="k">USING btree</span> (shopify_gid) <span class="k">WHERE</span> (shopify_gid <span class="k">IS</span> <span class="k">NOT NULL</span>);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_shopify_sync_status; Type: INDEX; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_shopify_sync_status <span class="k">ON</span> ops.shopify_sync <span class="k">USING btree</span> (status);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: channel_publish fk_channel_publish_channel; Type: FK CONSTRAINT; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> ops.channel_publish
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_channel_publish_channel <span class="k">FOREIGN KEY</span> (channel_id) <span class="k">REFERENCES</span> ops.channels(channel_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: channel_publish fk_channel_publish_variant; Type: FK CONSTRAINT; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> ops.channel_publish
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_channel_publish_variant <span class="k">FOREIGN KEY</span> (variant_id) <span class="k">REFERENCES</span> catalog.variants(variant_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: pipeline_runs fk_pipeline_runs_supplier; Type: FK CONSTRAINT; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> ops.pipeline_runs
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_pipeline_runs_supplier <span class="k">FOREIGN KEY</span> (supplier_id) <span class="k">REFERENCES</span> supplier.suppliers(supplier_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: shopify_sync fk_shopify_sync_channel; Type: FK CONSTRAINT; Schema: ops; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> ops.shopify_sync
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_shopify_sync_channel <span class="k">FOREIGN KEY</span> (channel_id) <span class="k">REFERENCES</span> ops.channels(channel_id);
+
+
+<span class="c">--</span>
+<span class="c">-- PostgreSQL database dump complete</span>
+<span class="c">--</span>
+
+\unrestrict BpG9k9VDVyUbPVjwXotAJgUCufHXx6H6gf0Yg4x4eMwdd9KuxNeJ37drYPAF1hb</pre>
+    </div>
+    <div class="ddl" style="margin-top: 0.9rem;">
+      <div class="ddl-bar">
+        <div class="cmd">pg_dump -s -n pricing mosferics</div>
+        <div class="count">230 lines</div>
+      </div>
+      <pre tabindex="0"><span class="c">--</span>
+<span class="c">-- PostgreSQL database dump</span>
+<span class="c">--</span>
+
+\restrict nxDgQjhu3KkonmYvMj9gVQB2kaIc0qFg6n1uHszMOLULN23QetoXwYapoZ1bvHQ
+
+<span class="c">-- Dumped from database version 16.14 (Ubuntu 16.14-1.pgdg22.04+1)</span>
+<span class="c">-- Dumped by pg_dump version 16.14 (Ubuntu 16.14-1.pgdg22.04+1)</span>
+
+<span class="k">SET</span> statement_timeout = 0;
+<span class="k">SET</span> lock_timeout = 0;
+<span class="k">SET</span> idle_in_transaction_session_timeout = 0;
+<span class="k">SET</span> client_encoding = &#x27;UTF8&#x27;;
+<span class="k">SET</span> standard_conforming_strings = on;
+<span class="k">SELECT</span> pg_catalog.set_config(&#x27;search_path&#x27;, &#x27;&#x27;, false);
+<span class="k">SET</span> check_function_bodies = false;
+<span class="k">SET</span> xmloption = content;
+<span class="k">SET</span> client_min_messages = warning;
+<span class="k">SET</span> row_security = off;
+
+<span class="c">--</span>
+<span class="c">-- Name: pricing; Type: SCHEMA; Schema: -; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">SCHEMA</span> pricing;
+
+
+<span class="k">ALTER SCHEMA</span> pricing <span class="k">OWNER TO</span> mos_owner;
+
+<span class="k">SET</span> default_tablespace = &#x27;&#x27;;
+
+<span class="k">SET</span> default_table_access_method = heap;
+
+<span class="c">--</span>
+<span class="c">-- Name: cost_basis; Type: TABLE; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> pricing.cost_basis (
+    variant_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    cost_per_base_unit <span class="t">numeric</span>(12,4) <span class="k">NOT NULL</span>,
+    source_offer_id <span class="t">bigint</span>,
+    computed_at <span class="t">timestamp with time zone</span> <span class="k">DEFAULT</span> now() <span class="k">NOT NULL</span>,
+    <span class="k">CONSTRAINT</span> ck_cost_basis_cost_not_negative <span class="k">CHECK</span> ((cost_per_base_unit &gt;= (0)::<span class="t">numeric</span>))
+);
+
+
+<span class="k">ALTER TABLE</span> pricing.cost_basis <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: variant_prices; Type: TABLE; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> pricing.variant_prices (
+    variant_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    channel_id <span class="t">integer</span> <span class="k">NOT NULL</span>,
+    calculated_price <span class="t">numeric</span>(12,2),
+    override_price <span class="t">numeric</span>(12,2),
+    final_price <span class="t">numeric</span>(12,2) <span class="k">GENERATED ALWAYS AS</span> (<span class="k">COALESCE</span>(override_price, calculated_price)) <span class="k">STORED</span>,
+    vat_rate <span class="t">numeric</span>(5,4),
+    margin_pct <span class="t">numeric</span>(6,3),
+    status <span class="t">text</span> <span class="k">DEFAULT</span> &#x27;pending_approval&#x27;::<span class="t">text</span> <span class="k">NOT NULL</span>,
+    approved_by <span class="t">text</span>,
+    <span class="k">CONSTRAINT</span> ck_variant_prices_calculated_not_negative <span class="k">CHECK</span> (((calculated_price <span class="k">IS</span> <span class="k">NULL</span>) <span class="k">OR</span> (calculated_price &gt;= (0)::<span class="t">numeric</span>))),
+    <span class="k">CONSTRAINT</span> ck_variant_prices_margin_pct_is_a_percentage <span class="k">CHECK</span> (((margin_pct <span class="k">IS</span> <span class="k">NULL</span>) <span class="k">OR</span> (margin_pct &lt; (100)::<span class="t">numeric</span>))),
+    <span class="k">CONSTRAINT</span> ck_variant_prices_override_not_negative <span class="k">CHECK</span> (((override_price <span class="k">IS</span> <span class="k">NULL</span>) <span class="k">OR</span> (override_price &gt;= (0)::<span class="t">numeric</span>))),
+    <span class="k">CONSTRAINT</span> ck_variant_prices_status <span class="k">CHECK</span> ((status = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;pending_approval&#x27;::<span class="t">text</span>, &#x27;auto_approved&#x27;::<span class="t">text</span>, &#x27;approved&#x27;::<span class="t">text</span>, &#x27;rejected&#x27;::<span class="t">text</span>]))),
+    <span class="k">CONSTRAINT</span> ck_variant_prices_vat_rate_is_a_fraction <span class="k">CHECK</span> (((vat_rate <span class="k">IS</span> <span class="k">NULL</span>) <span class="k">OR</span> ((vat_rate &gt;= (0)::<span class="t">numeric</span>) <span class="k">AND</span> (vat_rate &lt;= (1)::<span class="t">numeric</span>))))
+);
+
+
+<span class="k">ALTER TABLE</span> pricing.variant_prices <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: COLUMN variant_prices.margin_pct; Type: COMMENT; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">COMMENT ON COLUMN</span> pricing.variant_prices.margin_pct <span class="k">IS</span> &#x27;Margin at price-calculation time, as a percentage: the figure the approval gate judged. NOT the live margin — cost moves and this does not. For the current margin use pricing.live_margins.&#x27;;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: live_margins; Type: VIEW; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE VIEW</span> pricing.live_margins <span class="k">AS</span>
+ <span class="k">SELECT</span> vp.variant_id,
+    vp.channel_id,
+    vp.final_price,
+    cb.cost_per_base_unit,
+    <span class="k">round</span>((((vp.final_price - cb.cost_per_base_unit) / <span class="k">NULLIF</span>(vp.final_price, (0)::<span class="t">numeric</span>)) * (100)::<span class="t">numeric</span>), 3) <span class="k">AS</span> gross_margin,
+    vp.margin_pct <span class="k">AS</span> margin_pct_at_calc,
+    vp.status,
+    cb.computed_at <span class="k">AS</span> cost_computed_at
+   <span class="k">FROM</span> (pricing.variant_prices vp
+     <span class="k">LEFT JOIN</span> pricing.cost_basis cb <span class="k">ON</span> ((cb.variant_id = vp.variant_id)));
+
+
+<span class="k">ALTER VIEW</span> pricing.live_margins <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: VIEW live_margins; Type: COMMENT; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">COMMENT ON VIEW</span> pricing.live_margins <span class="k">IS</span> &#x27;The live gross margin: final_price against today&#x27;&#x27;s cost. Derived at query time and never stored (hard rule 7). gross_margin is the current figure; margin_pct_at_calc is the stored snapshot the approval gate judged, and the two are expected to differ once cost moves.&#x27;;
+
+
+<span class="c">--</span>
+<span class="c">-- Name: rules; Type: TABLE; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">TABLE</span> pricing.rules (
+    rule_id <span class="t">bigint</span> <span class="k">NOT NULL</span>,
+    scope_type <span class="t">text</span> <span class="k">NOT NULL</span>,
+    scope_id <span class="t">bigint</span>,
+    method <span class="t">text</span> <span class="k">NOT NULL</span>,
+    value <span class="t">numeric</span>(12,4) <span class="k">NOT NULL</span>,
+    priority <span class="t">integer</span> <span class="k">DEFAULT</span> 0 <span class="k">NOT NULL</span>,
+    valid_from <span class="t">timestamp with time zone</span> <span class="k">DEFAULT</span> now() <span class="k">NOT NULL</span>,
+    <span class="k">CONSTRAINT</span> ck_rules_global_has_no_scope_id <span class="k">CHECK</span> (((scope_type = &#x27;global&#x27;::<span class="t">text</span>) = (scope_id <span class="k">IS</span> <span class="k">NULL</span>))),
+    <span class="k">CONSTRAINT</span> ck_rules_method <span class="k">CHECK</span> ((method = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;percent_markup&#x27;::<span class="t">text</span>, &#x27;fixed_margin&#x27;::<span class="t">text</span>, &#x27;target_price&#x27;::<span class="t">text</span>]))),
+    <span class="k">CONSTRAINT</span> ck_rules_scope_type <span class="k">CHECK</span> ((scope_type = <span class="k">ANY</span> (<span class="k">ARRAY</span>[&#x27;global&#x27;::<span class="t">text</span>, &#x27;supplier&#x27;::<span class="t">text</span>, &#x27;category&#x27;::<span class="t">text</span>, &#x27;product&#x27;::<span class="t">text</span>]))),
+    <span class="k">CONSTRAINT</span> ck_rules_value_matches_method <span class="k">CHECK</span> ((((method = &#x27;percent_markup&#x27;::<span class="t">text</span>) <span class="k">AND</span> (value &gt;= (0)::<span class="t">numeric</span>)) <span class="k">OR</span> ((method = &#x27;fixed_margin&#x27;::<span class="t">text</span>) <span class="k">AND</span> (value &gt;= (0)::<span class="t">numeric</span>) <span class="k">AND</span> (value &lt; (100)::<span class="t">numeric</span>)) <span class="k">OR</span> ((method = &#x27;target_price&#x27;::<span class="t">text</span>) <span class="k">AND</span> (value &gt; (0)::<span class="t">numeric</span>))))
+);
+
+
+<span class="k">ALTER TABLE</span> pricing.rules <span class="k">OWNER TO</span> mos_owner;
+
+<span class="c">--</span>
+<span class="c">-- Name: rules_rule_id_seq; Type: SEQUENCE; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE</span> pricing.rules <span class="k">ALTER COLUMN</span> rule_id <span class="k">ADD</span> <span class="k">GENERATED BY DEFAULT AS IDENTITY</span> (
+    <span class="k">SEQUENCE</span> NAME pricing.rules_rule_id_seq
+    <span class="k">START WITH</span> 1
+    <span class="k">INCREMENT BY</span> 1
+    <span class="k">NO MINVALUE</span>
+    <span class="k">NO MAXVALUE</span>
+    <span class="k">CACHE</span> 1
+);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: cost_basis cost_basis_pkey; Type: CONSTRAINT; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> pricing.cost_basis
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> cost_basis_pkey <span class="k">PRIMARY KEY</span> (variant_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: variant_prices pk_variant_prices; Type: CONSTRAINT; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> pricing.variant_prices
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> pk_variant_prices <span class="k">PRIMARY KEY</span> (variant_id, channel_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: rules rules_pkey; Type: CONSTRAINT; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> pricing.rules
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> rules_pkey <span class="k">PRIMARY KEY</span> (rule_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_cost_basis_source_offer; Type: INDEX; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_cost_basis_source_offer <span class="k">ON</span> pricing.cost_basis <span class="k">USING btree</span> (source_offer_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_rules_scope; Type: INDEX; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_rules_scope <span class="k">ON</span> pricing.rules <span class="k">USING btree</span> (scope_type, scope_id, priority);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_variant_prices_channel; Type: INDEX; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_variant_prices_channel <span class="k">ON</span> pricing.variant_prices <span class="k">USING btree</span> (channel_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: ix_variant_prices_status; Type: INDEX; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">CREATE</span> <span class="k">INDEX</span> ix_variant_prices_status <span class="k">ON</span> pricing.variant_prices <span class="k">USING btree</span> (status);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: cost_basis fk_cost_basis_source_offer; Type: FK CONSTRAINT; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> pricing.cost_basis
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_cost_basis_source_offer <span class="k">FOREIGN KEY</span> (source_offer_id) <span class="k">REFERENCES</span> supplier.supplier_offers(offer_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: cost_basis fk_cost_basis_variant; Type: FK CONSTRAINT; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> pricing.cost_basis
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_cost_basis_variant <span class="k">FOREIGN KEY</span> (variant_id) <span class="k">REFERENCES</span> catalog.variants(variant_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: variant_prices fk_variant_prices_channel; Type: FK CONSTRAINT; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> pricing.variant_prices
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_variant_prices_channel <span class="k">FOREIGN KEY</span> (channel_id) <span class="k">REFERENCES</span> ops.channels(channel_id);
+
+
+<span class="c">--</span>
+<span class="c">-- Name: variant_prices fk_variant_prices_variant; Type: FK CONSTRAINT; Schema: pricing; Owner: mos_owner</span>
+<span class="c">--</span>
+
+<span class="k">ALTER TABLE ONLY</span> pricing.variant_prices
+    <span class="k">ADD</span> <span class="k">CONSTRAINT</span> fk_variant_prices_variant <span class="k">FOREIGN KEY</span> (variant_id) <span class="k">REFERENCES</span> catalog.variants(variant_id);
+
+
+<span class="c">--</span>
+<span class="c">-- PostgreSQL database dump complete</span>
+<span class="c">--</span>
+
+\unrestrict nxDgQjhu3KkonmYvMj9gVQB2kaIc0qFg6n1uHszMOLULN23QetoXwYapoZ1bvHQ</pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>What is next</h2>
+    <p class="prose head-note">Stage 4&rsquo;s schema work is done bar
+      <span class="mono">stock</span>. The blocking item is not a migration: it
+      is the grant block above, which has to run before NocoDB is stood up at
+      Stage 5. After that, Stage 7 builds the pipeline against these tables
+      &mdash; and <span class="mono">link.py</span> inherits the confirmation
+      rules from 0007 and 0008, and now the orphaned-preferred-link query
+      that feeds <span class="mono">ops.review_queue</span>.</p>
+  </section>
+
+</div>
