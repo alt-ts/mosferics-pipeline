@@ -1,0 +1,815 @@
+<title>Review Schema Reporting Views</title>
+<style>
+  :root {
+    --ground: #F4F6F7;
+    --surface: #FFFFFF;
+    --raised: #EAEFF0;
+    --ink: #12181B;
+    --muted: #57686D;
+    --rule: #D8E0E2;
+    --accent: #0E5C68;
+    --accent-soft: #DBEBEE;
+    --ok: #2C6A4F;
+    --ok-soft: #DDEBE3;
+    --open: #8A5A00;
+    --open-soft: #F5EBD8;
+    --code-bg: #101819;
+    --code-ink: #D3E0E2;
+    --code-kw: #7FC8D4;
+    --code-type: #CBBA88;
+    --code-comment: #6B8388;
+    --serif: ui-serif, "Iowan Old Style", "Source Serif 4", Georgia, serif;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #0E1315;
+      --surface: #151C1F;
+      --raised: #1C2528;
+      --ink: #E2E9EA;
+      --muted: #91A4A9;
+      --rule: #253134;
+      --accent: #58BFCC;
+      --accent-soft: #163237;
+      --ok: #74C29A;
+      --ok-soft: #162B22;
+      --open: #DBA94A;
+      --open-soft: #2E2612;
+      --code-bg: #0A1012;
+      --code-ink: #D3E0E2;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground: #0E1315;
+    --surface: #151C1F;
+    --raised: #1C2528;
+    --ink: #E2E9EA;
+    --muted: #91A4A9;
+    --rule: #253134;
+    --accent: #58BFCC;
+    --accent-soft: #163237;
+    --ok: #74C29A;
+    --ok-soft: #162B22;
+    --open: #DBA94A;
+    --open-soft: #2E2612;
+    --code-bg: #0A1012;
+    --code-ink: #D3E0E2;
+  }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 4rem;
+  }
+
+  .prose { max-width: 40rem; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.13em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(2.4rem, 6vw, 3.4rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+    text-wrap: balance;
+    margin: 0.6rem 0 0;
+  }
+
+  h1 .mono {
+    font-family: var(--mono);
+    font-size: 0.82em;
+    letter-spacing: -0.03em;
+  }
+
+  h2 {
+    font-family: var(--serif);
+    font-size: 1.65rem;
+    line-height: 1.2;
+    letter-spacing: -0.01em;
+    font-weight: 600;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  h3 {
+    font-family: var(--sans);
+    font-size: 1rem;
+    line-height: 1.35;
+    font-weight: 650;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  p { margin: 0; }
+  .lede { color: var(--muted); font-size: 1.05rem; margin-top: 1rem; }
+
+  section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .head-note {
+    color: var(--muted);
+    font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .mono { font-family: var(--mono); font-size: 0.9em; }
+
+  /* ---------- migration chain: order is real information here ---------- */
+  .chain {
+    list-style: none;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0;
+    margin: 0;
+  }
+
+  .chain li {
+    flex: 1 1 8rem;
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 0.7rem 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .chain .rev {
+    font-family: var(--mono);
+    font-size: 0.95rem;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+
+  .chain .what {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+
+  .chain li.now {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+
+  .chain li.now .rev { color: var(--accent); font-weight: 700; }
+  .chain li.now .what { color: var(--ink); }
+
+  /* ---------- verification tiles ---------- */
+  .tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .tile {
+    background: var(--surface);
+    padding: 1.15rem 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+  }
+
+  .tile .figure {
+    font-family: var(--mono);
+    font-size: 1.5rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+    color: var(--ink);
+  }
+
+  .tile .label {
+    font-size: 0.78rem;
+    line-height: 1.4;
+    color: var(--muted);
+  }
+
+  .tile .verdict {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ok);
+  }
+
+  /* ---------- judgement calls ---------- */
+  .calls {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+    gap: 0.75rem;
+  }
+
+  .call {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 1.15rem 1.2rem 1.3rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+  }
+
+  .call p { font-size: 0.88rem; color: var(--muted); }
+
+  .chip {
+    align-self: flex-start;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    padding: 0.2rem 0.45rem;
+    border-radius: 2px;
+  }
+
+  .call.open { border-left: 2px solid var(--open); }
+  .call.open .chip { background: var(--open-soft); color: var(--open); }
+  .call.record .chip { background: var(--raised); color: var(--muted); }
+
+  /* ---------- table matrix ---------- */
+  .scroll {
+    overflow-x: auto;
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    background: var(--surface);
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.87rem;
+  }
+
+  th, td {
+    text-align: right;
+    padding: 0.5rem 0.9rem;
+    border-bottom: 1px solid var(--rule);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  th {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  th:first-child, td.name { text-align: left; }
+  td.name { color: var(--ink); }
+  tr.total td { border-bottom: none; color: var(--muted); font-weight: 600; }
+  tbody tr:last-child td { border-bottom: none; }
+
+  /* ---------- DDL panel ---------- */
+  .ddl {
+    background: var(--code-bg);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .ddl-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid #23302f;
+    background: #0B1214;
+  }
+
+  .ddl-bar .cmd {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: #8FA6AA;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .ddl-bar .count {
+    font-family: var(--mono);
+    font-size: 0.68rem;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: #6B8388;
+  }
+
+  .ddl pre {
+    margin: 0;
+    padding: 1.1rem 1rem 1.4rem;
+    overflow-x: auto;
+    max-height: 44rem;
+    overflow-y: auto;
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    line-height: 1.65;
+    color: var(--code-ink);
+    tab-size: 4;
+  }
+
+  .ddl .k { color: var(--code-kw); }
+  .ddl .t { color: var(--code-type); }
+  .ddl .c { color: var(--code-comment); font-style: italic; }
+
+  /* ---------- next ---------- */
+  .next {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .next li {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 0.8rem 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.15rem 0.7rem;
+    align-items: baseline;
+    font-size: 0.9rem;
+  }
+
+  .next .step {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--accent);
+    min-width: 4.5rem;
+  }
+
+  .next .detail { color: var(--muted); font-size: 0.85rem; flex: 1 1 14rem; }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--rule);
+    margin: 0;
+  }
+
+  a { color: var(--accent); }
+  a:focus-visible, .ddl pre:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  @media (max-width: 40rem) {
+    .wrap { padding: 2.5rem 1rem 4rem; gap: 3rem; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">Migration 2b9b2f63d30b &middot; applied to live 7 Oct 2026</div>
+    <h1>The <span class="mono">review</span> schema, and three literals
+      that would have emptied it</h1>
+    <p class="lede">Three read-only views, no tables, no data &mdash; the
+      anti-joins a NocoDB filter view cannot express. The SQL came from a
+      design document that had guessed at four status values it never
+      checked. Two of those guesses would have returned too few rows and
+      looked like an empty worklist rather than a bug.</p>
+  </header>
+
+  <section>
+    <h2>Where the chain stands</h2>
+    <ol class="chain">
+      <li><span class="rev">0010</span><span class="what">pricing</span></li>
+      <li><span class="rev">0011</span><span class="what">margin pack-size fix</span></li>
+      <li><span class="rev">0012</span><span class="what">review_queue notes</span></li>
+      <li><span class="rev">0013</span><span class="what">role grants</span></li>
+      <li class="now"><span class="rev">2b9b2f63d30b</span><span class="what">review views</span></li>
+    </ol>
+    <p class="head-note">Live and scratch are both at
+      <span class="mono">2b9b2f63d30b</span>, the fourteenth migration and the
+      first to add no table. It revises <span class="mono">0013</span> and must
+      stay last: the views reach across <span class="mono">supplier</span>,
+      <span class="mono">link</span>, <span class="mono">catalog</span>,
+      <span class="mono">pricing</span> and <span class="mono">ops</span>, so
+      nothing it reads may be created after it. <span class="mono">stock</span>
+      is still deferred and still owes
+      <span class="mono">DATA_SCHEMAS</span> an entry when it lands.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <h2>The design document was wrong in three places</h2>
+    <p class="prose">Each of these came from a CHECK constraint written months
+      earlier contradicting prose written last week. The document had flagged
+      its own risk &mdash; it said the status literals were the thing most
+      likely to be wrong, and to check the migrations rather than trust it.
+      That advice was right, and two of the three errors were exactly where it
+      pointed.</p>
+
+    <div class="calls">
+      <article class="call record">
+        <div class="chip">hid the majority</div>
+        <h3><span class="mono">IN ('approved', 'auto_approved')</span>, not <span class="mono">= 'approved'</span></h3>
+        <p><span class="mono">0010</span> constrains the column to four values
+          and says in its own comment that <em>auto_approved and approved are
+          both live prices; the distinction is how they got there</em> &mdash;
+          which is what the materiality threshold decides. At a 5% threshold
+          most prices never queue at all and land on
+          <span class="mono">auto_approved</span>, so the single literal hides
+          the bulk of a working catalogue behind a view that merely looks
+          quiet. Four qualifying fixture rows; the document's predicate
+          returned two.</p>
+      </article>
+
+      <article class="call record">
+        <div class="chip">NULL is not false</div>
+        <h3><span class="mono">IS DISTINCT FROM 'rejected'</span>, not <span class="mono">&lt;&gt; 'rejected'</span></h3>
+        <p><span class="mono">catalog.images.status</span> is nullable free text
+          with no CHECK and no default, unlike
+          <span class="mono">product_metadata.status</span>. So
+          <span class="mono">&lt;&gt; 'rejected'</span> evaluates to NULL for an
+          unset status, the <span class="mono">EXISTS</span> finds nothing, and
+          a product that <em>has</em> an image is reported as missing one.
+          Nothing sets a status on insert, so unset is the state every image the
+          matcher writes will arrive in &mdash; the plain
+          <span class="mono">&lt;&gt;</span> would have been wrong for
+          essentially every row, not an edge case.</p>
+      </article>
+
+      <article class="call record">
+        <div class="chip">the trap inside the trap</div>
+        <h3><span class="mono">FOR ROLE mos_owner</span> on the default privileges</h3>
+        <p>The document's grant omitted it. Default privileges attach to the
+          role that will create the object, defaulting to whoever runs the
+          statement &mdash; so without the clause the statement still succeeds,
+          <span class="mono">pg_default_acl</span> still gains a row, and every
+          view a later migration adds is born invisible to NocoDB. The symptom
+          surfaces months later and reads as a permissions problem.
+          <span class="mono">0013</span> had already learned this; the views
+          migration inherits the lesson rather than the bug.</p>
+      </article>
+    </div>
+  </section>
+
+  <hr>
+
+  <section>
+    <h2>Judgement calls</h2>
+    <p class="prose">Choices the data model does not dictate, which is where a
+      decision you would have made differently is cheapest to reverse &mdash;
+      nothing has run against these views yet.</p>
+
+    <div class="calls">
+      <article class="call record">
+        <div class="chip">asymmetric on purpose</div>
+        <h3>The image test differs between two views</h3>
+        <p><span class="mono">missing_images</span> is NULL-safe;
+          <span class="mono">ready_to_publish</span> keeps strict
+          <span class="mono">= 'verified'</span>. A worklist should not accuse a
+          product of lacking an image it has, and a publish gate must require
+          positive verification &mdash; NULL failing is the safe direction in
+          one and the wrong one in the other. The asymmetry is deliberate and
+          both views carry a comment saying so.</p>
+      </article>
+
+      <article class="call record">
+        <div class="chip">shipped, not deferred</div>
+        <h3>Publish intent is inside the view</h3>
+        <p>The document described the
+          <span class="mono">publish_status = 'pending'</span> filter as
+          something to add before showing the view to anyone. Unscoped it is
+          every active product without an image &mdash; most of 60k rows, an
+          inventory rather than a worklist. Left as a follow-up it is a
+          follow-up nobody does, so it ships in the view.</p>
+      </article>
+
+      <article class="call record">
+        <div class="chip">no status test</div>
+        <h3>The preferred-link check stands alone</h3>
+        <p><span class="mono">0007</span>'s
+          <span class="mono">ck_variant_links_preferred_is_confirmed</span>
+          makes <span class="mono">is_preferred</span> imply
+          <span class="mono">status = 'confirmed'</span>, and its demotion
+          trigger maintains it. Adding
+          <span class="mono">AND l.status = 'confirmed'</span> would be harmless
+          and redundant; leaving it out states that the constraint is trusted.</p>
+      </article>
+
+      <article class="call record">
+        <div class="chip">explicit cast</div>
+        <h3>The composite key is cast, not coerced</h3>
+        <p><span class="mono">variant_id::text || ':' || channel_id::text</span>
+          rather than relying on <span class="mono">bigint || text</span>
+          resolving through <span class="mono">anynonarray</span>. NocoDB wants
+          one unique column per relation and a composite key will not do; the
+          cast makes the view say what it builds.</p>
+      </article>
+
+      <article class="call record">
+        <div class="chip">deterministic</div>
+        <h3>A third sort key on the aggregate view</h3>
+        <p><span class="mono">unmapped_categories</span> has no natural key, so
+          its <span class="mono">id</span> is a
+          <span class="mono">row_number()</span>.
+          <span class="mono">supplier_category_raw</span> joins the
+          <span class="mono">ORDER BY</span> purely so the numbering is stable
+          within one query when two of a supplier's categories tie on count. It
+          is still not stable between refreshes, which is acceptable only
+          because nothing joins to it.</p>
+      </article>
+
+      <article class="call record">
+        <div class="chip">symmetric teardown</div>
+        <h3>The downgrade revokes before it drops</h3>
+        <p><span class="mono">ALTER DEFAULT PRIVILEGES &hellip; REVOKE</span>
+          first, then each view by name, then
+          <span class="mono">DROP SCHEMA &hellip; CASCADE</span> with nothing
+          left to reach. Verified: no <span class="mono">pg_default_acl</span>
+          row outlives the schema it names, and the cascade is a backstop rather
+          than the mechanism.</p>
+      </article>
+
+      <article class="call open">
+        <div class="chip">open</div>
+        <h3><span class="mono">ready_to_publish</span> passes an undescribed product</h3>
+        <p>&ldquo;Everything verified&rdquo; is expressed as
+          <span class="mono">NOT EXISTS &hellip; pending_review</span>, which a
+          product with <em>zero</em> metadata rows also satisfies. Empty is not
+          verified. The real check is minimum-required-fields per taxonomy node
+          and does not exist yet. Proven with a fixture, stated in the view
+          comment, and not mistakable for that check.</p>
+      </article>
+
+      <article class="call open">
+        <div class="chip">open</div>
+        <h3>Nothing guarantees <span class="mono">'verified'</span> is the literal</h3>
+        <p><span class="mono">catalog.images.status</span> has no CHECK to check
+          it against and the table is empty, so the strict test in
+          <span class="mono">ready_to_publish</span> is a convention the
+          database will not enforce. If that view is unexpectedly empty after
+          Stage 7, this is the first thing to look at &mdash; before anything in
+          NocoDB.</p>
+      </article>
+
+      <article class="call open">
+        <div class="chip">open</div>
+        <h3>Two tables still sign nothing</h3>
+        <p>Resolving an <span class="mono">ops.review_queue</span> row
+          <em>raises</em> unless <span class="mono">resolved_by</span> and
+          <span class="mono">resolved_at</span> are set with it &mdash; verified
+          by running it. Verifying
+          <span class="mono">catalog.product_metadata</span>
+          <em>succeeds silently</em> with a null author, because that table has
+          no pairing constraint at all. Only
+          <span class="mono">link.variant_links</span> signs itself. The quiet
+          one governs hard rule 3's safety fields and is the one to fix first.</p>
+      </article>
+    </div>
+  </section>
+
+  <hr>
+
+  <section>
+    <h2>What was proven before it went near live</h2>
+    <div class="tiles">
+      <div class="tile">
+        <div class="figure">2&times;</div>
+        <div class="label">down / up cycles on scratch, empty and with fixtures</div>
+        <div class="verdict">clean</div>
+      </div>
+      <div class="tile">
+        <div class="figure">14</div>
+        <div class="label">migrations rebuilt from <span class="mono">base</span> to head, all seven schemas</div>
+        <div class="verdict">clean</div>
+      </div>
+      <div class="tile">
+        <div class="figure">4</div>
+        <div class="label">price status values exercised &mdash; every legal one</div>
+        <div class="verdict">as specified</div>
+      </div>
+      <div class="tile">
+        <div class="figure">3</div>
+        <div class="label">image status states &mdash; NULL, rejected, verified</div>
+        <div class="verdict">as specified</div>
+      </div>
+      <div class="tile">
+        <div class="figure">0</div>
+        <div class="label"><span class="mono">pg_default_acl</span> rows left after downgrade</div>
+        <div class="verdict">clean</div>
+      </div>
+      <div class="tile">
+        <div class="figure">1</div>
+        <div class="label">probe view proving a <em>future</em> view inherits the grant</div>
+        <div class="verdict">readable</div>
+      </div>
+    </div>
+
+    <p class="prose">Every table these views read is empty, so three views
+      returning zero rows proves only that the SQL parses. The fixtures had to
+      vary the deciding factor in each view, and the two rows that caught the
+      two corrections &mdash; an image with a NULL status, a price at
+      <span class="mono">auto_approved</span> &mdash; are precisely the rows a
+      happy-path fixture does not contain. Side by side on the same data:</p>
+
+    <table>
+      <thead>
+        <tr><th>View</th><th>Document's predicate</th><th>As shipped</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="name"><span class="mono">missing_images</span></td>
+          <td>3 rows &mdash; includes a product whose only image is NULL-status</td>
+          <td>2 rows &mdash; correct</td>
+        </tr>
+        <tr>
+          <td class="name"><span class="mono">ready_to_publish</span></td>
+          <td>2 of 4 &mdash; drops both <span class="mono">auto_approved</span> rows</td>
+          <td>4 rows &mdash; correct</td>
+        </tr>
+        <tr>
+          <td class="name"><span class="mono">unmapped_categories</span></td>
+          <td colspan="2">2 rows, heaviest first; mapped, discontinued-only and
+            NULL categories excluded, and the supplier that sends no category
+            column correctly absent</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="prose">Scratch was then rebuilt from <span class="mono">base</span>
+      so no fixture survives to fail a later tightening migration and look like
+      that migration's bug.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <h2>The DDL, read back from live</h2>
+    <div class="ddl">
+      <div class="ddl-bar">
+        <div class="cmd">pg_dump -s -n review mosferics</div>
+        <div class="count">82 lines</div>
+      </div>
+      <pre tabindex="0"><span class="k">CREATE</span> <span class="k">SCHEMA</span> review;
+
+<span class="k">ALTER</span> <span class="k">SCHEMA</span> review <span class="k">OWNER</span> <span class="k">TO</span> mos_owner;
+
+<span class="k">COMMENT</span> <span class="k">ON</span> <span class="k">SCHEMA</span> review <span class="k">IS</span> 'Read-only reporting surface for NocoDB. Every view here answers a question defined by an absence, which a NocoDB filter view cannot express because it cannot join. Connected to NocoDB as its own data source with Allow Data Edit off. Nothing writes here and nothing should join to these views.';
+
+<span class="k">CREATE</span> <span class="k">VIEW</span> review.missing_images <span class="k">AS</span>
+ <span class="k">SELECT</span> p.product_id <span class="k">AS</span> id,
+    p.product_id,
+    p.title,
+    t.path <span class="k">AS</span> category_path,
+    b.name <span class="k">AS</span> brand,
+    <span class="t">count</span>(v.variant_id) <span class="k">AS</span> variant_count
+   <span class="k">FROM</span> (((catalog.products p
+     <span class="k">LEFT</span> <span class="k">JOIN</span> catalog.taxonomy t <span class="k">ON</span> ((t.category_id = p.category_id)))
+     <span class="k">LEFT</span> <span class="k">JOIN</span> catalog.brands b <span class="k">ON</span> ((b.brand_id = p.brand_id)))
+     <span class="k">LEFT</span> <span class="k">JOIN</span> catalog.variants v <span class="k">ON</span> ((v.product_id = p.product_id)))
+  <span class="k">WHERE</span> ((p.status = 'active'::<span class="t">text</span>) <span class="k">AND</span> (<span class="k">NOT</span> (<span class="k">EXISTS</span> ( <span class="k">SELECT</span> 1
+           <span class="k">FROM</span> catalog.images i
+          <span class="k">WHERE</span> ((i.product_id = p.product_id) <span class="k">AND</span> (i.status <span class="k">IS</span> <span class="k">DISTINCT</span> <span class="k">FROM</span> 'rejected'::<span class="t">text</span>))))) <span class="k">AND</span> (<span class="k">EXISTS</span> ( <span class="k">SELECT</span> 1
+           <span class="k">FROM</span> (catalog.variants v2
+             <span class="k">JOIN</span> ops.channel_publish cp <span class="k">ON</span> ((cp.variant_id = v2.variant_id)))
+          <span class="k">WHERE</span> ((v2.product_id = p.product_id) <span class="k">AND</span> (cp.publish_status = 'pending'::<span class="t">text</span>)))))
+  <span class="k">GROUP</span> <span class="k">BY</span> p.product_id, p.title, t.path, b.name;
+
+<span class="k">ALTER</span> <span class="k">VIEW</span> review.missing_images <span class="k">OWNER</span> <span class="k">TO</span> mos_owner;
+
+<span class="k">COMMENT</span> <span class="k">ON</span> <span class="k">VIEW</span> review.missing_images <span class="k">IS</span> 'Active products we are trying to publish and cannot, for want of an image. Scoped to variants with channel_publish.publish_status = pending, because image work is gated on publish intent, not ingest — unscoped this would be most of 60k rows. An image awaiting review counts as present, not missing: that is the Needs review view''s job.';
+
+<span class="k">CREATE</span> <span class="k">VIEW</span> review.ready_to_publish <span class="k">AS</span>
+ <span class="k">SELECT</span> (((cp.variant_id)::<span class="t">text</span> || ':'::<span class="t">text</span>) || (cp.channel_id)::<span class="t">text</span>) <span class="k">AS</span> id,
+    cp.variant_id,
+    cp.channel_id,
+    v.mosferics_sku,
+    p.title,
+    pr.final_price,
+    pr.margin_pct,
+    cp.fulfilment_mode
+   <span class="k">FROM</span> (((ops.channel_publish cp
+     <span class="k">JOIN</span> catalog.variants v <span class="k">ON</span> ((v.variant_id = cp.variant_id)))
+     <span class="k">JOIN</span> catalog.products p <span class="k">ON</span> ((p.product_id = v.product_id)))
+     <span class="k">JOIN</span> pricing.variant_prices pr <span class="k">ON</span> (((pr.variant_id = cp.variant_id) <span class="k">AND</span> (pr.channel_id = cp.channel_id))))
+  <span class="k">WHERE</span> ((cp.publish_status &lt;&gt; 'published'::<span class="t">text</span>) <span class="k">AND</span> (p.status = 'active'::<span class="t">text</span>) <span class="k">AND</span> (pr.status = <span class="k">ANY</span> (<span class="k">ARRAY</span>['approved'::<span class="t">text</span>, 'auto_approved'::<span class="t">text</span>])) <span class="k">AND</span> (<span class="k">EXISTS</span> ( <span class="k">SELECT</span> 1
+           <span class="k">FROM</span> link.variant_links l
+          <span class="k">WHERE</span> ((l.variant_id = cp.variant_id) <span class="k">AND</span> l.is_preferred))) <span class="k">AND</span> (<span class="k">EXISTS</span> ( <span class="k">SELECT</span> 1
+           <span class="k">FROM</span> catalog.images i
+          <span class="k">WHERE</span> ((i.product_id = p.product_id) <span class="k">AND</span> (i.status = 'verified'::<span class="t">text</span>)))) <span class="k">AND</span> (<span class="k">NOT</span> (<span class="k">EXISTS</span> ( <span class="k">SELECT</span> 1
+           <span class="k">FROM</span> catalog.product_metadata m
+          <span class="k">WHERE</span> ((m.product_id = p.product_id) <span class="k">AND</span> (m.status = 'pending_review'::<span class="t">text</span>))))));
+
+<span class="k">ALTER</span> <span class="k">VIEW</span> review.ready_to_publish <span class="k">OWNER</span> <span class="k">TO</span> mos_owner;
+
+<span class="k">COMMENT</span> <span class="k">ON</span> <span class="k">VIEW</span> review.ready_to_publish <span class="k">IS</span> 'Variant x channel rows cleared to sync: live price, preferred source, a verified image, no metadata still pending review. Keyed per channel because publish_status and price both are. NOT a minimum-required-fields check — it passes a product with zero metadata rows, which is empty rather than verified. That check does not exist yet.';
+
+<span class="k">CREATE</span> <span class="k">VIEW</span> review.unmapped_categories <span class="k">AS</span>
+ <span class="k">SELECT</span> <span class="t">row_number</span>() <span class="k">OVER</span> (<span class="k">ORDER</span> <span class="k">BY</span> (<span class="t">count</span>(*)) <span class="k">DESC</span>, s.name, sp.supplier_category_raw) <span class="k">AS</span> id,
+    sp.supplier_id,
+    s.name <span class="k">AS</span> supplier,
+    sp.supplier_category_raw,
+    <span class="t">count</span>(*) <span class="k">AS</span> product_count,
+    <span class="t">min</span>(sp.name_raw) <span class="k">AS</span> example_product
+   <span class="k">FROM</span> ((supplier.supplier_products sp
+     <span class="k">JOIN</span> supplier.suppliers s <span class="k">ON</span> ((s.supplier_id = sp.supplier_id)))
+     <span class="k">LEFT</span> <span class="k">JOIN</span> link.category_map cm <span class="k">ON</span> (((cm.supplier_id = sp.supplier_id) <span class="k">AND</span> (cm.supplier_category_raw = sp.supplier_category_raw))))
+  <span class="k">WHERE</span> ((sp.supplier_category_raw <span class="k">IS</span> <span class="k">NOT</span> NULL) <span class="k">AND</span> (cm.category_id <span class="k">IS</span> NULL) <span class="k">AND</span> (sp.discontinued <span class="k">IS</span> <span class="k">NOT</span> TRUE))
+  <span class="k">GROUP</span> <span class="k">BY</span> sp.supplier_id, s.name, sp.supplier_category_raw;
+
+<span class="k">ALTER</span> <span class="k">VIEW</span> review.unmapped_categories <span class="k">OWNER</span> <span class="k">TO</span> mos_owner;
+
+<span class="k">COMMENT</span> <span class="k">ON</span> <span class="k">VIEW</span> review.unmapped_categories <span class="k">IS</span> 'Supplier categories with no link.category_map row, heaviest first so mapping effort clears the most catalogue. Pairs with an editable NocoDB grid on link.category_map: this says what is missing, that is where the mapping is added. Only covers suppliers that send a category column; BBP''s unmapped products surface in ops.review_queue instead. id is a row_number and is not stable between refreshes.';
+
+<span class="k">GRANT</span> <span class="k">USAGE</span> <span class="k">ON</span> <span class="k">SCHEMA</span> review <span class="k">TO</span> mos_nocodb;
+
+<span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> <span class="k">TABLE</span> review.missing_images <span class="k">TO</span> mos_nocodb;
+
+<span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> <span class="k">TABLE</span> review.ready_to_publish <span class="k">TO</span> mos_nocodb;
+
+<span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> <span class="k">TABLE</span> review.unmapped_categories <span class="k">TO</span> mos_nocodb;
+
+<span class="k">ALTER</span> <span class="k">DEFAULT</span> <span class="k">PRIVILEGES</span> <span class="k">FOR</span> <span class="k">ROLE</span> mos_owner <span class="k">IN</span> <span class="k">SCHEMA</span> review <span class="k">GRANT</span> <span class="k">SELECT</span> <span class="k">ON</span> TABLES <span class="k">TO</span> mos_nocodb;</pre>
+    </div>
+    <p class="head-note">Owned by <span class="mono">mos_owner</span>, which can
+      read every underlying table &mdash; so
+      <span class="mono">mos_nocodb</span> holds
+      <span class="mono">SELECT</span> on the views and nothing on the tables
+      beneath them, and no <span class="mono">INSERT</span> or
+      <span class="mono">UPDATE</span> anywhere. That is also the lever for
+      showing margin without supplier cost, if that is ever wanted.</p>
+  </section>
+
+  <hr>
+
+  <section>
+    <h2>What is next</h2>
+    <ul class="next">
+      <li>
+        <span class="step">B</span>
+        <span><span class="mono">NocoDB</span> filter views</span>
+        <span class="detail">The other four of Stage 5's seven, in the UI, on
+          the real tables so the reviewer can edit them. <em>Unmapped vocabulary</em>
+          needs <span class="mono">resolved_by</span> and
+          <span class="mono">resolved_at</span> in its field list or resolving a
+          row raises.</span>
+      </li>
+      <li>
+        <span class="step">B</span>
+        <span>Meta Sync</span>
+        <span class="detail">NocoDB does not notice new database objects on its
+          own, and will not until <span class="mono">review</span> is connected
+          as a data source with <strong>Allow Data Edit off</strong>.</span>
+      </li>
+      <li>
+        <span class="step">C</span>
+        <span>Lock it down</span>
+        <span class="detail">Per-source toggles, <span class="mono">raw</span>
+          and <span class="mono">review</span> read-only, Schema Edit off
+          everywhere. Not &ldquo;the reviewer sees only the filtered views&rdquo;
+          &mdash; NocoDB cannot do that for internal collaborators, and the
+          build doc no longer claims it as an exit criterion.</span>
+      </li>
+      <li>
+        <span class="step">&mdash;</span>
+        <span>The signing trigger</span>
+        <span class="detail">A pairing constraint and a
+          <span class="mono">BEFORE UPDATE</span> trigger on
+          <span class="mono">product_metadata</span>, modelled on
+          <span class="mono">0008</span>. Its own migration, and the one
+          outstanding item here that silently loses information rather than
+          failing loudly.</span>
+      </li>
+    </ul>
+  </section>
+
+</div>
