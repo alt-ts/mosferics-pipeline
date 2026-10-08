@@ -171,7 +171,13 @@ Format `MOS-<DEPT>-<NNNNNNN>-<C>`, e.g. `MOS-GLA-0000123-6`. Variant-level, not 
 
 Key/value rather than wide columns because the metadata set is open-ended and each field needs its own verification state. Oven-safe can be `verified` while dimensions are still `pending_review`.
 
+**`verified_by` / `verified_at` are not signed for you, and nothing makes them mandatory.** Unlike `link.variant_links`, this table has neither the `(verified_by IS NULL) = (verified_at IS NULL)` pairing constraint nor a signing trigger. Flipping `status` to `verified` therefore **succeeds with both columns null** — no error, and the audit trail for a safety-relevant field quietly has no author. Hard rule 3 makes these the fields that most need one. The fix is the same shape as `0008`'s: a pairing constraint plus a `BEFORE UPDATE` trigger stamping `current_user` and `now()`, in a migration, so it holds regardless of which client wrote the row. Not built as of `2b9b2f63d30b` — see the signing-trigger note under `ops`.
+
 **`catalog.images`** — `image_id`, `product_id`, `s3_key`, `url`, `position`, `source`, `status`
+
+**`images.status` is deliberately unconstrained — and that has a cost worth stating.** Unlike `product_metadata.status`, it carries no CHECK, no default and is nullable, because the image pipeline's review states were not settled when `0005` was written. The convention is the same three values (`pending_review` / `verified` / `rejected`), but the database does not enforce it and an image inserted without one is **NULL**, not pending.
+
+Any query asking "does this product have a usable image?" must therefore be NULL-safe: `status <> 'rejected'` evaluates to NULL for an unset status, so the row vanishes from an `EXISTS` and the product reads as having *no* image at all. Use `status IS DISTINCT FROM 'rejected'`. This is not hypothetical — it is the bug `review.missing_images` was corrected for before it ever ran. A publish *gate* is the one place strict `status = 'verified'` is right, because there NULL failing is the safe direction.
 
 ### Brand hierarchy — entities, not text
 
@@ -209,7 +215,9 @@ Priority resolves conflicts: a product-level rule beats a category rule beats a 
 
 **`pricing.cost_basis`** — `variant_id`, `cost_per_base_unit`, `source_offer_id`, `computed_at`
 
-**`pricing.variant_prices`** — `variant_id`, `channel_id`, `calculated_price`, `override_price`, `final_price`, `vat_rate`, `margin_pct`, `status`, `approved_by`
+**`pricing.variant_prices`** — `variant_id`, `channel_id`, `calculated_price`, `override_price`, `final_price`, `vat_rate`, `margin_pct`, `status` (pending_approval / auto_approved / approved / rejected), `approved_by`
+
+**`auto_approved` and `approved` are both live prices**; the distinction is only *how* they got there, which is what the materiality threshold below decides. Anything asking "is this price usable?" must accept both — `status = 'approved'` alone silently excludes every price that cleared the 5% threshold without a human, which at that threshold is the majority of the catalogue. The two to exclude are `pending_approval` and `rejected`.
 
 Keyed by channel. Event and trade pricing will not match — different volumes, different margin expectations, different fulfilment economics.
 
@@ -333,6 +341,18 @@ The table only holds config. The **delivery promise engine** that reads it is a 
 | `ops.pipeline_runs` | `run_id`, `supplier_id`, `started_at`, `finished_at`, `status`, `summary` (JSONB) — what the staff exe reports back |
 | `ops.shopify_sync` | `channel_id`, `entity`, `entity_id`, `shopify_gid`, `shopify_handle`, `last_synced`, `payload_hash`, `status` |
 
+**Resolving a `review_queue` row is a three-column write, not a status flip.** `0009` puts three constraints on this table that interlock: `resolved_by` and `resolved_at` must be set or null *together*; anything not `open` must have a resolver; and an `open` row must have none. So `UPDATE ... SET status = 'resolved'` on its own **raises** `ck_review_queue_closed_has_resolver`. Any UI that lets someone close a queue item must expose all three columns — or the table needs the signing trigger below.
+
+**The signing triggers are inconsistent across the three tables that have audit columns, and this is a known gap.** Each fails differently on an incomplete edit:
+
+| Table | Pairing constraint | Signing trigger | An incomplete edit |
+|---|---|---|---|
+| `link.variant_links` | yes | **yes** (`0008`) | signs itself; one write is enough |
+| `ops.review_queue` | yes | no | **raises** — loud, and recoverable by supplying all three columns |
+| `catalog.product_metadata` | no | no | **succeeds silently** with a null author — the bad one |
+
+The first is the pattern the other two should follow. The middle one is at least honest. The last is the one to fix first, because it is the only one that loses information without telling anyone, and it governs the safety-relevant fields of hard rule 3.
+
 `channel_id` on the sync table is required, not optional — without it the same variant cannot hold a Shopify GID for two storefronts.
 
 `payload_hash` means you only push changed records to the Shopify API, not the whole catalogue every time.
@@ -344,6 +364,28 @@ Three things need to be explicit for the schema to build cleanly:
 - **Standard foreign keys** (single parent PK — declare as SQL FKs): `products.category_id → taxonomy`, `products.brand_id → brands`, `products.collection_id → collections`, `products.range_id → ranges`, `variants.product_id → products`, `variant_links.variant_id → variants`, `variant_links.supplier_product_id → supplier_products`, `category_map.category_id → taxonomy`, `category_map.supplier_id → suppliers`, `supplier_products.supplier_id → suppliers`, `supplier_offers.supplier_product_id → supplier_products`, `supplier_stock.supplier_product_id → supplier_products`, `compliance.product_id → products`, `compliance.evidence_document_id → documents`, `product_metadata.product_id → products`, `images.product_id → products`, `product_relations.from_product_id / to_product_id → products`, `collections.brand_id → brands`, `ranges.collection_id → collections`, `cost_basis.variant_id → variants`, `cost_basis.source_offer_id → supplier_offers`, `variant_prices.variant_id → variants`, `variant_prices.channel_id → channels`, `channel_publish.variant_id → variants`, `channel_publish.channel_id → channels`, `stock.levels / stock.movements .variant_id → variants` and `.location_id → locations`, `shopify_sync.channel_id → channels`, plus the self-references `taxonomy.parent_id → taxonomy` and `documents.superseded_by → documents`.
 - **Polymorphic references** point at different tables depending on a sibling type column, so they cannot be single SQL foreign keys — enforce them in the pipeline and with a CHECK on the type column: `pricing.rules.scope_id` (by `scope_type`), `catalog.documents.attach_id` (by `attach_level`), `ops.shopify_sync.entity_id` (by `entity`), `ops.review_queue.entity_id` (by `entity_type`).
 - **Composite primary keys** on the junction / attribute tables: `variant_links` (supplier_product_id, variant_id), `channel_publish` (variant_id, channel_id), `stock.levels` (variant_id, location_id), `product_metadata` (product_id, key), `compliance` (product_id, claim), `variant_prices` (variant_id, channel_id), `category_map` (supplier_id, supplier_category_raw), `metafield_map` (internal_key, owner_type), `raw.import_rows` (batch_id, row_number). `product_relations` keys on (from_product_id, to_product_id, relation_type).
+
+---
+
+## `review` — read-only reporting surface
+
+A schema of nothing but views, added at migration `2b9b2f63d30b` to serve NocoDB. It holds no tables, no data and no state, and nothing joins to it.
+
+| View | Answers |
+|---|---|
+| `review.unmapped_categories` | supplier categories with no `link.category_map` row, heaviest first |
+| `review.missing_images` | active products with publish intent and no usable image |
+| `review.ready_to_publish` | variant × channel rows cleared to sync |
+
+**Why a schema rather than `ops.v_*`.** NocoDB connects it as a separate data source with *Allow Data Edit* off, so every report view is read-only in one toggle instead of per-view locking someone must remember for each new view. It also keeps a read-only reporting surface visibly distinct from the real tables in the reviewer's sidebar.
+
+**Why views at all, when NocoDB has filter views.** A NocoDB view is a saved filter over a *single table* — it cannot join. Each of these three is defined by an **absence**: a row with no match in another table. That is an anti-join, so it has to be SQL. The corollary is the rule that splits the Stage 5 review views in two: anything the reviewer must *change* has to be a NocoDB filter view on the real table, because a Postgres view is read-only in practice and he could not do his job through one.
+
+**Views run with their owner's privileges.** `mos_owner` owns these and can read every underlying table, so `mos_nocodb` needs `SELECT` on the views alone and no grant on the tables beneath them. That is a lever worth remembering: a role can be given a view without the cost basis it was computed from — how the reviewer could see margin without seeing supplier cost, should that ever be wanted.
+
+These views are reports, not gates. `ready_to_publish` in particular is **not** a minimum-required-fields check: it asks that nothing is still `pending_review`, which a product with *zero* metadata rows also satisfies. Empty is not verified. The real check is per taxonomy node and does not exist yet.
+
+Full SQL, the status literals each view depends on, and the NocoDB setup around them are in `mosferics_nocodb_views.md`.
 
 ---
 
@@ -451,7 +493,7 @@ Do not build this in one pass. Slices, each one useful on its own:
 
 1. `raw` + `supplier` schemas, one supplier (Artis), ingest only
 2. `catalog` + `link` with auto 1:1 links — single-source path working end to end
-3. NocoDB on top, review states live
+3. NocoDB on top, review states live — plus the `review` schema's report views, which are the anti-joins a NocoDB filter view cannot express
 4. `pricing` rules and variant prices
 5. Variant grouping and multi-source: `variant_links` with human confirmation, preferred source (`is_preferred`)
 6. `stock` schema, plus `supplier_stock` feeds where available

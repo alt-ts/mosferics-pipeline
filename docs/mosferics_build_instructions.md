@@ -460,6 +460,37 @@ Build the schemas in dependency order, one migration per schema:
 6. `pricing` — ships the `pricing.live_margins` view alongside the three tables. It is the canonical answer to "what is the margin now?" (rule 7's derived-at-query-time margin); `variant_prices.margin_pct` is the calc-time snapshot only, and carries a column comment saying so. **The margin must multiply cost by `base_units_per_variant`** — the cost is per base unit and the price is per variant, so omitting the factor overstates margin on every multi-unit line. `0010` shipped that bug and `0011` fixed it
 7. `stock` — defer if your stocked list is short
 
+Then, **after all of them**, the reporting views:
+
+8. `review` — three read-only views for NocoDB, at `2b9b2f63d30b`. Last because it
+   references tables across `supplier`, `link`, `catalog`, `pricing` and `ops`, so it
+   cannot be built before they exist. Views only; no tables, no data. Part A of
+   `mosferics_nocodb_views.md` has the SQL
+
+**The migrations as actually built**, since the numbering is not one-per-schema — four of
+them are corrections and tightenings applied after the fact, and a clean rebuild needs
+them in this order:
+
+| Revision | What |
+|---|---|
+| `0001` | `raw` schema |
+| `0002` | `supplier` schema |
+| `0003` | relax `supplier_products.description_status` |
+| `0004` | make `raw.import_rows` immutable by trigger (hard rule 11) |
+| `0005` | `catalog` schema, `sku_check_digit()`, `next_mosferics_sku()` |
+| `0006` | `link` schema |
+| `0007` | single-preferred-link trigger; `is_preferred` implies `confirmed` |
+| `0008` | auto-sign confirmations; require a confirmer |
+| `0009` | `ops` schema |
+| `0010` | `pricing` schema + `live_margins` view |
+| `0011` | fix `live_margins` to multiply cost by `base_units_per_variant` |
+| `0012` | add `notes` to `ops.review_queue` |
+| `0013` | apply role grants for all four roles |
+| `2b9b2f63d30b` | `review` schema and its three reporting views |
+
+`stock` is not in this list — it is still deferred, and when it lands it must be added to
+`DATA_SCHEMAS` in `0013` and granted in the same migration that creates it.
+
 **When building `link.py`, confirm the auto-created links.** Migration 0007 requires `is_preferred` to imply `status = 'confirmed'`, so the auto-created 1:1 link every single-source item gets must be written as `status = 'confirmed'`. It does not have to be signed by hand: migration 0008 added a trigger that fills `confirmed_by` and `confirmed_at` whenever a row is confirmed without a confirmer, so the pipeline can either write `confirmed_by = 'pipeline'` explicitly (which is preserved) or leave both null and sign as `mos_pipeline`. The one remaining trap is writing `confirmed_by` without `confirmed_at` — that fails the pairing constraint, because the signing trigger only fires when `confirmed_by` is null. Leaving `status` at its `proposed` default is the other trap, and the quiet one: it silently drops `is_preferred` on every single-source variant. See the `is_preferred` section of `mosferics_data_model_v3.md` for the full table.
 
 **NocoDB needs no configuration for this.** the reviewer confirms a link by flipping `status` to `confirmed`; the trigger signs it as `mos_nocodb`. Attribution is per role, not per person — if per-person attribution is ever wanted, have NocoDB write the logged-in user into `confirmed_by` and the trigger will leave it alone.
@@ -534,7 +565,7 @@ Every migration must have a working `downgrade()`. Test each one up, down, and u
 >
 > Six schemas are covered — `raw`, `supplier`, `catalog`, `link`, `ops`, `pricing`. **When `stock` lands, add it to `DATA_SCHEMAS` in `0013`** and grant in the same migration that creates it; a new schema does not inherit anything, because default privileges are per-schema.
 
-**Done when:** `alembic upgrade head` builds the whole database from empty on a clean instance, `downgrade base` tears it down without error, and the Stage 2 role grants are applied so `mos_pipeline` can actually read/write the tables.
+**Done when:** `alembic upgrade head` builds the whole database from empty on a clean instance — all six schemas plus `review`, ending at `2b9b2f63d30b` — `downgrade base` tears it down without error, and the Stage 2 role grants are applied so `mos_pipeline` can actually read/write the tables.
 
 ---
 
@@ -585,19 +616,46 @@ tailscale serve status                   # shows the https://mosferics-ops-01.<t
 
 Build these views before the reviewer ever sees it, because an unfiltered 60k-row grid is unusable:
 
-| View | Purpose |
-|---|---|
-| Needs review | `status = pending_review`, grouped by field type |
-| Proposed links | Variant groupings and multi-source matches awaiting confirmation |
-| Unmapped categories | Supplier categories with no taxonomy mapping |
-| Unmapped vocabulary | Colour/material/finish values not in the alias table |
-| Missing images | Products with no matched image |
-| Price changes | Above materiality threshold, awaiting approval |
-| Ready to publish | Everything verified, not yet synced |
+| View | Purpose | Built as | Source |
+|---|---|---|---|
+| Needs review | `status = pending_review`, grouped by field type | NocoDB filter | `catalog.product_metadata` |
+| Proposed links | Variant groupings and multi-source matches awaiting confirmation | NocoDB filter | `link.variant_links` |
+| Unmapped categories | Supplier categories with no taxonomy mapping | **Postgres view** | `review.unmapped_categories` |
+| Unmapped vocabulary | Colour/material/finish values not in the alias table | NocoDB filter | `ops.review_queue` |
+| Missing images | Products with no matched image | **Postgres view** | `review.missing_images` |
+| Price changes | Above materiality threshold, awaiting approval | NocoDB filter | `pricing.variant_prices` |
+| Ready to publish | Everything verified, not yet synced | **Postgres view** | `review.ready_to_publish` |
 
-Lock `raw` tables to read-only in the UI. They are the audit trail.
+**These seven are not seven of the same thing.** A NocoDB view is a saved filter over a
+*single table* and cannot join. Three of the seven are defined by an **absence** — a row
+with no match in another table — which is an anti-join and has to be SQL; those are the
+`review` schema, built in migration `2b9b2f63d30b` (Stage 4, step 8). The other four are
+filters in the UI. The dividing rule: **anything the reviewer has to change must be a NocoDB
+filter view on the real table**, because a Postgres view is read-only in practice and he
+could not approve, confirm or override through one.
 
-**Done when:** the reviewer can reach NocoDB over Tailscale, sees only the filtered views, and can edit a description and flip a review flag without being able to touch `raw` or run DDL.
+*Unmapped vocabulary* is the one that looks like it should be a Postgres view and isn't.
+Unmapped *categories* can be computed because `link.category_map` is a table to anti-join
+against; the vocabulary alias lists are **YAML files in git**, so there is nothing in the
+database to anti-join. The only record of a failed normalisation is the row `normalise.py`
+writes to `ops.review_queue` with `entity_type = 'vocabulary'` — so it is a filter on the
+queue, and legitimately empty until Stage 7.
+
+Full build: `mosferics_nocodb_views.md` — Part A the migration, Part B the four filter
+views, Part C the lockdown.
+
+**NocoDB does not notice new database objects on its own.** After any migration that adds
+or changes a view: Base Settings → Data Sources → `review` → Meta Sync → Reload → Sync
+Now. A view that exists in Postgres but not in NocoDB is almost always a missing `GRANT`,
+which is why the grants live in the migration beside the views.
+
+Lock `raw` tables to read-only in the UI. They are the audit trail. Connect `review` the
+same way with **Allow Data Edit off** — one toggle makes every report view read-only, now
+and for every view added later.
+
+**Done when:** the reviewer can reach NocoDB over Tailscale, can edit a description and flip a review flag, and cannot touch `raw` or run DDL.
+
+**Not** "sees only the filtered views" — that is not achievable and should not be written as an exit criterion. NocoDB has no per-view access control for internal collaborators, so the reviewer also sees each table's default grid in the sidebar; sharing a view by link does not help, because shared views are read-only and cannot carry the work he has to do. Mitigate ergonomically — trim and **Lock** each table's default view, order the named views above it — and treat the real boundary as the `mos_nocodb` grants plus the per-data-source toggles. See Part C of `mosferics_nocodb_views.md`.
 
 ---
 
