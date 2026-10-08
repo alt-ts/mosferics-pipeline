@@ -12,8 +12,8 @@ Stages 0 and 9 are paper exercises. Everything else is build. Stage 0 is not opt
 |---|---|---|
 | VM provider, region, size | Stage 1 | Open |
 | SKU check digit | Stage 4 | **Done — mod-11, `MOS-<DEPT>-<NNNNNNN>-<C>`** |
-| Taxonomy tree v1 | Stage 6 | **Done — v1 created, Level 1 frozen** |
-| Controlled vocabularies + alias lists | Stage 6 | **Done — Colour/Material/Finish/Shape v1 created** |
+| Taxonomy tree v1 | Stage 6 | **Decided, not landed** — 0 rows in `catalog.taxonomy` |
+| Controlled vocabularies + alias lists | Stage 6 | **Decided, not landed** — `config/vocabularies/` is empty |
 | Materiality threshold %, margin floor % | Stage 7 | **Done — 5% threshold, 15% floor** |
 | Standard handling time (days) | Stage 8 | **Done — 1 day** |
 | Delivery promise engine | Post-pilot | Config decided + seeded at Stage 4; logic deferred — see spec below |
@@ -24,7 +24,25 @@ Stages 0 and 9 are paper exercises. Everything else is build. Stage 0 is not opt
 | Compliance evidence policy after dropping DoC | Stage 6 | **Done — supplier data sheets are the evidence** |
 | Knife age restriction | Stage 6 | **Done — all knives are 18+** |
 
-**Taxonomy and vocabularies v1 are created.** The three-level tree (variant axes per leaf) and the four alias-backed vocabulary files — Colour with hex values — are done, so Stage 6 is complete and Stage 7 is unblocked. Level 1 of the taxonomy is now frozen for SKU allocation; everything below it stays restructurable.
+**Taxonomy and vocabularies v1 are decided but have not landed, and Stage 7 is therefore still blocked.** The three-level tree (variant axes per leaf) and the four alias-backed vocabulary lists — Colour with hex values — are settled as *decisions*: shape agreed, Level 1 fixed for SKU allocation, everything below it restructurable. What does not yet exist is the artefact. `catalog.taxonomy` holds **0 rows** and `config/vocabularies/` is **empty**, so nothing in the pipeline can read either.
+
+**The taxonomy gap is a hard block, not a tidiness problem.** `catalog.next_mosferics_sku()` resolves `<DEPT>` against a level-1 node and raises when there is none:
+
+```text
+ERROR:  unknown department prefix GLA: no level-1 taxonomy node carries it
+CONTEXT:  PL/pgSQL function catalog.next_mosferics_sku(text) line 11 at RAISE
+```
+
+So `link.py` cannot create a single variant until the tree is loaded. The `RAISE` precedes the `nextval`, so a failed run burns no SKU and leaves the sequence untouched — the block is safe to hit, just absolute. Check both before planning any Stage 7 work, rather than trusting the rows above:
+
+```bash
+psql -c 'SELECT count(*) FROM catalog.taxonomy'                    # must be > 0
+psql -c "SELECT count(*) FROM catalog.taxonomy
+          WHERE parent_id IS NULL AND sku_prefix IS NOT NULL"      # must be > 0
+ls config/vocabularies/                                             # must list four YAMLs
+```
+
+Loading the tree is an **insert, not a migration** — it is data in a table the schema already defines, so it does not go through Alembic. The vocabulary files are git-tracked YAML and are the source of truth; do not add a vocabulary table to make them editable in NocoDB, or the two copies will drift.
 
 **the reviewer's edit permissions:** the reviewer can edit `pricing.override_price` directly in NocoDB. His grant on `pricing.variant_prices` allows setting the override column; a price refresh never overwrites it (`final_price = COALESCE(override_price, calculated_price)`). Calculated changes above the materiality threshold, or any change breaching the margin floor, still queue for approval regardless.
 
@@ -661,7 +679,9 @@ and for every view added later.
 
 ## Stage 6 — Taxonomy and vocabularies
 
-**Status: v1 complete.** The taxonomy tree and the four vocabulary files are created — this stage is done and Stage 7 is unblocked. The method below is retained as the record of how v1 was derived and as the guide for extending it (new suppliers add aliases; the tree grows below the frozen Level 1).
+**Status: decided, not landed — this stage is not done.** The tree's shape and the four vocabulary lists are agreed, and Level 1 is fixed. But `catalog.taxonomy` has 0 rows and `config/vocabularies/` is empty, so **Stage 7 is blocked**: `catalog.next_mosferics_sku()` raises without a level-1 node carrying the prefix, and no variant can be created. See the Stage 0 note for the exact error and the checks.
+
+What remains is transcription rather than design — load the tree (an insert, not a migration; `sku_prefix` on the level-1 nodes, `variant_axes` ordered per leaf) and commit the four YAMLs. The method below is the record of how v1 was derived and the guide for extending it: new suppliers add aliases, the tree grows below the frozen Level 1.
 
 Paper work, but it blocks Stage 7. Do it properly.
 
