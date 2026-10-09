@@ -1,0 +1,138 @@
+[
+  {
+    "name": "Glassware & Drinkware",
+    "sku_prefix": "GLA",
+    "children": [
+      {"name": "Beer Glasses", "variant_axes": ["capacity", "colour"], "children": ["Pint", "Half-Pint", "Stemmed Beer", "Mugs, Steins & Tankards"]},
+      {"name": "Wine Glasses", "variant_axes": ["capacity", "colour"], "children": ["Red Wine", "White Wine", "Universal & Water"]},
+      {"name": "Champagne & Sparkling", "variant_axes": ["capacity", "colour"], "children": ["Flutes", "Coupes & Champagne Saucers"]},
+      {"name": "Tumblers & Hi-Balls", "variant_axes": ["capacity", "colour"], "children": ["Hi-Ball & Tall Tumblers", "Old Fashioned, Rocks & Whisky", "Water & Juice Tumblers"]},
+      {"name": "Spirit & Cocktail Glasses", "variant_axes": ["capacity", "colour"], "children": ["Martini", "Coupette & Nick & Nora", "Margarita", "Gin & Balloon", "Hurricane & Sling", "Shot Glasses"]},
+      {"name": "Jugs, Carafes & Decanters", "variant_axes": ["capacity", "colour"], "children": []}
+    ]
+  },
+  {
+    "name": "Tableware & Crockery",
+    "sku_prefix": "TAB",
+    "children": [
+      {"name": "Plates", "variant_axes": ["size", "colour"], "children": ["Round & Classic", "Square & Rectangular", "Pasta, Pizza & Gourmet", "Side & Presentation"]},
+      {"name": "Bowls", "variant_axes": ["size", "colour"], "children": ["Serving & Salad", "Pasta & Soup", "Ramekins & Small Dishes"]},
+      {"name": "Cups, Mugs & Saucers", "variant_axes": ["capacity", "colour"], "children": ["Cups & Saucers", "Mugs", "Espresso & Cappuccino Cups", "Tea & Coffee Glasses"]},
+      {"name": "Teapots & Beverageware", "variant_axes": ["capacity", "colour"], "children": ["Teapots & Coffee Pots", "Milk & Frothing Jugs", "Tea & Coffeeware"]},
+      {"name": "Dessert & Sundae Serveware", "variant_axes": [], "children": []},
+      {"name": "Serveware & Presentation", "variant_axes": [], "children": ["Platters & Sauce Boats", "Steel Presentation", "Wood Presentation", "Tapas"]},
+      {"name": "Table Dressing & Service", "variant_axes": [], "children": ["Candles & Holders", "Table Caddies", "Condiment Holders, Dispensers, Salt & Pepper", "Napkins", "Tip Trays & Bill Presenters"]}
+    ]
+  },
+  {
+    "name": "Cutlery & Flatware",
+    "sku_prefix": "CUT",
+    "children": [
+      {"name": "Table Cutlery", "variant_axes": ["finish"], "children": ["Table Knives", "Table Forks", "Table & Soup Spoons"]},
+      {"name": "Dessert & Tea Cutlery", "variant_axes": ["finish"], "children": ["Dessert Cutlery", "Teaspoons & Coffee Spoons"]},
+      {"name": "Serving & Speciality Cutlery", "variant_axes": ["finish"], "children": ["Serving Spoons & Servers", "Steak Knives & Forks", "Cake Slices"]},
+      {"name": "Cutlery Storage", "variant_axes": [], "children": ["Cutlery Trays & Holders"]}
+    ]
+  },
+  {
+    "name": "Bar & Cocktail",
+    "sku_prefix": "BAR",
+    "children": [
+      {"name": "Measures & Pourers", "variant_axes": ["measure_size"], "children": ["Spirit Measures", "Non-CA Jiggers", "Measure Dispensers & Brackets", "Speed Pourers", "Dash & Bitter Bottles"]},
+      {"name": "Cocktail Making", "variant_axes": [], "children": ["Cocktail Shakers", "Strainers", "Mixing Glasses", "Bar & Cocktail Spoons", "Muddlers", "Mexican Elbows", "Glass Rimmers"]},
+      {"name": "Ice, Garnish & Bar Tools", "variant_axes": [], "children": ["Garnish Tweezers & Tools", "Bar Knives", "Ice Buckets & Tools", "Ice Crushers", "Wine Coolers & Stands"]},
+      {"name": "Bar Sundries & Fixtures", "variant_axes": ["colour"], "children": ["Bar Mats & Shelf Liners", "Speed Rails", "Bar Caddies", "Drip Trays", "Glass Hangers", "Bar Trays & Carriers", "Recycling Bins & Bottle Skips", "Cellar & Cask", "Tiki & Metal Mugs"]}
+    ]
+  },
+  {
+    "name": "Kitchen & Cookware",
+    "sku_prefix": "KIT",
+    "children": [
+      {"name": "Cookware", "variant_axes": ["size"], "children": ["Pots & Pans", "Frying & Sauté Pans", "Woks", "Casserole & Stew Pans", "Bain Marie Pots & Lids"]},
+      {"name": "Bakeware", "variant_axes": ["size"], "children": ["Baking Trays, Sheets & Tins", "Pizza Pans & Utensils", "Cake, Pastry & Cupcake", "Cooling Racks"]},
+      {"name": "Knives & Sharpening", "variant_axes": [], "children": ["Chefs Knives", "Paring, Boning, Filleting & Carving", "Bread & Serrated", "Santoku & Utility", "Knife Sets, Blocks & Wallets", "Honing Steels & Whetstones", "Kitchen Scissors"]},
+      {"name": "Kitchen Utensils", "variant_axes": ["colour"], "children": ["Tongs", "Spatulas & Turners", "Cooking & Serving Spoons", "Ladles & Spoodles", "Whisks & Paddles", "Spiders & Skimmers", "Lifters & Slicers", "Mashers & Ricers", "Oven Gloves & Cloths"]},
+      {"name": "Prep Tools & Gadgets", "variant_axes": ["colour"], "children": ["Chopping Boards & Accessories", "Peelers, Zesters & Graters", "Mandolines & Slicers", "Can Openers", "Squeeze & Sauce Dispensers", "Dredgers & Shakers", "Funnels, Sieves & Filters", "Citrus Juicers", "Pestle & Mortar", "Blow Torches"]},
+      {"name": "Measuring & Thermometers", "variant_axes": [], "children": ["Measuring Jugs, Cups & Spoons", "Measuring Containers", "Thermometers & Timers", "Scales"]}
+    ]
+  },
+  {
+    "name": "Food Storage & Gastronorm",
+    "sku_prefix": "GAS",
+    "children": [
+      {"name": "Gastronorm Pans & Lids", "variant_axes": ["gn_size", "depth"], "children": ["Stainless GN", "Polycarbonate GN", "Polypropylene GN", "GN Liners & Covers", "GN Trolleys & Racks"]},
+      {"name": "Storage Containers", "variant_axes": ["size"], "children": ["Food Storage Containers", "Flexi Tubs", "Ingredient Bins", "Handled & Preserving Jars", "Ice Cream Containers"]},
+      {"name": "Prep & Labelling", "variant_axes": [], "children": ["Pizza Dough Boxes", "Preserving Bags & Bottles", "Storage, Allergen & Use-by Labels", "Transport & Delivery Bags"]}
+    ]
+  },
+  {
+    "name": "Catering Equipment & Appliances",
+    "sku_prefix": "EQP",
+    "children": [
+      {"name": "Cooking Appliances", "variant_axes": [], "children": []},
+      {"name": "Refrigeration", "variant_axes": [], "children": []},
+      {"name": "Bar & Beverage Machines", "variant_axes": [], "children": []},
+      {"name": "Warewashing", "variant_axes": [], "children": []},
+      {"name": "Spare Parts", "variant_axes": [], "children": []}
+    ]
+  },
+  {
+    "name": "Disposables & Food-to-Go",
+    "sku_prefix": "DIS",
+    "children": [
+      {"name": "Hot Food Packaging", "variant_axes": ["size"], "children": []},
+      {"name": "Cold Food Packaging", "variant_axes": ["size"], "children": []},
+      {"name": "Takeaway Cups & Lids", "variant_axes": ["size"], "children": ["Paper/Takeaway Coffee Cups & Lids", "Cold Drink Cups", "Accessories"]},
+      {"name": "Disposable Tableware", "variant_axes": [], "children": ["Disposable Glasses", "Disposable Cutlery", "Meal Trays", "Disposable Serveware & Lids"]},
+      {"name": "Straws, Stirrers & Picks", "variant_axes": [], "children": ["Straws", "Drink Stirrers", "Cocktail Sticks & Bamboo Picks"]},
+      {"name": "Bags & Wraps", "variant_axes": ["colour"], "children": ["Paper Bags", "Clingfilm, Foil, Greaseproof & Parchment", "Bin Bags & Refuse Sacks"]},
+      {"name": "Paper Hygiene & Wipes", "variant_axes": [], "children": ["Blue Roll & Centrefeed", "Toilet Roll & Hand Towels"]}
+    ]
+  },
+  {
+    "name": "Cleaning, Hygiene & Safety",
+    "sku_prefix": "HYG",
+    "children": [
+      {"name": "Chemicals & COSHH", "variant_axes": [], "children": ["Dishwash/Glasswash Detergent & Rinse Aid", "Sanitisers", "Degreasers", "Grill & Oven Cleaners", "Washing-up Liquid", "Ice Machine & Line Cleaner", "Glass & Surface Cleaners", "Glass Care & Renovation", "Specialist Chemicals"]},
+      {"name": "Cleaning Equipment", "variant_axes": [], "children": ["Mops, Buckets & Wringers", "Brooms, Brushes & Dustpans", "Squeegees & Deck Scrubs", "Mop Heads & Handles", "Vacuum Cleaners"]},
+      {"name": "Cloths, Wipes & Gloves", "variant_axes": [], "children": ["Dish, J & Microfibre Cloths", "Glass Cloths & Tea Towels", "Sponges & Scourers", "Surface & Probe Wipes", {"name": "Washing-up & Disposable Gloves", "variant_axes": ["size"]}]},
+      {"name": "Washroom & Hygiene", "variant_axes": [], "children": []},
+      {"name": "Waste Management", "variant_axes": [], "children": ["Kitchen, Pedal & Swing Bins", "Washroom Bins"]},
+      {"name": "Health & Safety", "variant_axes": [], "children": []}
+    ]
+  },
+  {
+    "name": "Clothing & Workwear (PPE)",
+    "sku_prefix": "CLO",
+    "children": [
+      {"name": "Chef Wear", "variant_axes": ["size", "colour"], "children": ["Chef Jackets & Tunics", "Chef Trousers", "Chef Aprons"]},
+      {"name": "Aprons", "variant_axes": ["size", "colour"], "children": ["Bib", "Waist"]},
+      {"name": "Headwear", "variant_axes": ["size"], "children": ["Skull Caps, Beanies & Hats", "Neckerchiefs"]},
+      {"name": "Front of House Uniform", "variant_axes": ["size", "colour"], "children": ["Waistcoats, Shirts & Uniforms"]},
+      {"name": "Footwear", "variant_axes": ["size"], "children": []}
+    ]
+  },
+  {
+    "name": "Furniture, Fixtures & Display",
+    "sku_prefix": "FUR",
+    "children": [
+      {"name": "Furniture & Seating", "variant_axes": ["colour"], "children": []},
+      {"name": "Barriers & Queue Management", "variant_axes": ["colour"], "children": []},
+      {"name": "Menus, Signs & Display", "variant_axes": [], "children": []}
+    ]
+  },
+  {
+    "name": "Food & Beverage",
+    "sku_prefix": "FNB",
+    "children": [
+      {"name": "Bar Syrups, Purées & Mixers", "variant_axes": [], "children": ["Syrups", "Purées & Cordials", "Cocktail Mixers", "Bitters"]},
+      {"name": "Cocktail Garnishes & Rimmers", "variant_axes": [], "children": ["Rimming Sugars & Salts", "Cocktail Cherries, Onions & Olives", "Dried-Fruit Garnishes"]},
+      {"name": "Soft Drinks & Water", "variant_axes": [], "children": []},
+      {"name": "Tea, Coffee & Hot Beverages", "variant_axes": [], "children": []},
+      {"name": "Sauces, Condiments & Preserves", "variant_axes": [], "children": []},
+      {"name": "Ambient Groceries & Baking", "variant_axes": [], "children": []},
+      {"name": "Snacks & Nuts", "variant_axes": [], "children": []},
+      {"name": "Packaged Food to Go", "variant_axes": [], "children": []}
+    ]
+  }
+]
