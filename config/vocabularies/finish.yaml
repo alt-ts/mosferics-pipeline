@@ -1,0 +1,176 @@
+# config/vocabularies/finish.yaml
+#
+# Controlled vocabulary for Finish (Stage 6 deliverable).
+#
+# Canonical keys are snake_case internal identifiers. `display` is the term we
+# publish. `aliases` are every supplier spelling that normalises to this canonical.
+#
+# Conventions
+# -----------
+# * Finish is the SURFACE TREATMENT — how the material is worked or coated — as
+#   distinct from the material itself (material.yaml) and its colour (colour.yaml).
+# * COATINGS/PLATINGS live here, not in material.yaml: chrome plating, PVD, powder
+#   coating, anodising, non-stick/Teflon. The material.yaml header routes these
+#   values to this file. The single exception is `enamel`, whose enamelled body is
+#   treated as a material (enamelware), not a finish.
+# * British spelling is canonical: Matt (not Matte), Anodised (not Anodized).
+# * Unmapped supplier values go to the NocoDB "Unmapped vocabulary" review view.
+#
+# Aliases are matched case-insensitively after trimming whitespace.
+# Sources: existing Shopify export finish metafields (products_export_1.csv);
+# finish tokens mined from Nevilles product descriptions.
+
+matt:
+  display: "Matt"
+  aliases:
+    - "Matt"
+    - "Matte"
+    - "Matt Finish"
+
+gloss:
+  display: "Gloss"
+  aliases:
+    - "Gloss"
+    - "Glossy"
+    - "High Gloss"
+
+satin:
+  display: "Satin"
+  aliases:
+    - "Satin"
+    - "Semi-Matt"
+    - "Semi-Gloss"
+
+polished:
+  display: "Polished"
+  aliases:
+    - "Polished"
+    - "Bright Polished"
+
+mirror:
+  display: "Mirror Polished"
+  aliases:
+    - "Mirror"
+    - "Mirror Polished"
+    - "Mirror Finish"
+
+brushed:
+  display: "Brushed"
+  aliases:
+    - "Brushed"
+    - "Brushed Steel"
+    - "Satin Brushed"
+
+hammered:
+  display: "Hammered"
+  aliases:
+    - "Hammered"
+
+stonewashed:
+  display: "Stonewashed"
+  aliases:
+    - "Stonewashed"
+    - "Stone Washed"
+
+nucleated:
+  display: "Nucleated"
+  # Etched nucleation point at the base of a beer glass to release CO2 and sustain
+  # the head. A finish/treatment, not a shape. Common across BBP glassware.
+  aliases:
+    - "Nucleated"
+    - "Nucleation"
+
+frosted:
+  display: "Frosted"
+  aliases:
+    - "Frosted"
+    - "Satin Etched"
+
+textured:
+  display: "Textured"
+  aliases:
+    - "Textured"
+    - "Embossed"
+
+rustic:
+  display: "Rustic"
+  aliases:
+    - "Rustic"
+    - "Distressed"
+    - "Vintage"
+
+antique:
+  display: "Antique"
+  aliases:
+    - "Antique"
+    - "Aged"
+
+metallic:
+  display: "Metallic"
+  aliases:
+    - "Metallic"
+
+glazed:
+  display: "Glazed"
+  aliases:
+    - "Glazed"
+
+unglazed:
+  display: "Unglazed"
+  aliases:
+    - "Unglazed"
+
+reactive_glaze:
+  display: "Reactive Glaze"
+  aliases:
+    - "Reactive"
+    - "Reactive Glaze"
+
+oiled:
+  display: "Oiled"
+  aliases:
+    - "Oiled"
+
+lacquered:
+  display: "Lacquered"
+  aliases:
+    - "Lacquered"
+    - "Varnished"
+    - "Lacquered-Varnished"
+
+# --- Coatings & platings (routed here from material.yaml) ---
+
+non_stick:
+  display: "Non-Stick"
+  aliases:
+    - "Non-Stick"
+    - "Non Stick"
+    - "Nonstick"
+    - "Teflon"
+    - "Teflon Coating"
+    - "Quantum 2 Coating"
+
+powder_coated:
+  display: "Powder Coated"
+  aliases:
+    - "Powder Coated"
+    - "Powder Coating"
+
+chrome_plated:
+  display: "Chrome Plated"
+  aliases:
+    - "Chrome Plated"
+    - "Chrome Plating"
+    - "Nickel Plating"
+
+pvd:
+  display: "PVD Coated"
+  aliases:
+    - "PVD"
+    - "PVD Coating"
+
+anodised:
+  display: "Anodised"
+  aliases:
+    - "Anodised"
+    - "Anodized"

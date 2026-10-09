@@ -1,0 +1,538 @@
+# config/vocabularies/material.yaml
+#
+# Controlled vocabulary for Material (Stage 6 deliverable).
+#
+# Canonical keys are snake_case internal identifiers. `display` is the term we
+# publish. `aliases` are every supplier spelling that normalises to this canonical.
+#
+# Conventions
+# -----------
+# * BASE MATERIALS ONLY. Suppliers publish compound values, e.g. Nevilles writes
+#   "Brass,Stainless Steel" or "Acacia Wood-A/B Grade,Iron,Plywood". Ingest splits
+#   these on comma/semicolon into atomic tokens, then aliases each token to a
+#   canonical here. A product can therefore carry several material tags.
+# * GRADES COLLAPSE. Stainless steel grades (201, 304, 18/10, Grade 5, X50CrMoV15…)
+#   all map to `stainless_steel`. The grade is not a separate published material;
+#   retain the raw string on the supplier row if grade ever needs surfacing.
+# * COATINGS / PLATINGS route to the FINISH vocabulary, not here — chrome plating,
+#   powder coating, PVD, teflon/non-stick, anodising are finishes. The exceptions
+#   are copper and brass "plating", kept here because they denote the visible
+#   material a customer buys on; and `enamel`, which is enamelware's defining body.
+# * Unmapped supplier values go to the NocoDB "Unmapped vocabulary" review view,
+#   get aliased once, and are never seen again.
+#
+# Aliases are matched case-insensitively after trimming whitespace.
+# Sources: Nevilles "Product Material" column; existing Shopify export material
+# metafields (products_export_1.csv). Uropa/Bronze has no material column —
+# equipment materials are extracted from descriptions at ingest, not aliased here.
+
+# ---------------------------------------------------------------------------
+# Metals
+# ---------------------------------------------------------------------------
+
+stainless_steel:
+  display: "Stainless Steel"
+  aliases:
+    - "Stainless Steel"
+    - "S/Steel"
+    - "Stainless"
+    - "Stainless Stl"
+    - "SS"
+    - "18/10"
+    - "18/8"
+    - "18/0"
+    - "13/0"
+    - "Stainless Steel 18-10"
+    - "Stainless Steel 18-0"
+    - "Stainless Steel-18/10"
+    - "Stainless Steel-18/8"
+    - "Stainless Steel-18/0"
+    - "Stainless Steel-13/0"
+    - "Stainless Steel-200"
+    - "Stainless Steel-201"
+    - "Stainless Steel-202"
+    - "Stainless Steel-301"
+    - "Stainless Steel-304"
+    - "Stainless Steel-410"
+    - "Stainless Steel-420"
+    - "Stainless Steel-430"
+    - "Stainless Steel-443"
+    - "Stainless Steel-2CR13"
+    - "Stainless Steel-3CR13"
+    - "Stainless Steel-Grade 5"
+    - "Stainless Steel-Grade 7"
+    - "Stainless Steel-X50CrMoV15"
+    - "Stainless Steel-5Cr15MoV"
+    - "Molybdenum Stainless Steel"
+    - "S/S"
+    - "201 stainless steel"
+    - "200 series stainless steel"
+    - "200 series steel"          # Beaumont shorthand for 200-series stainless
+    - "200 series non-magnetic S/S"
+    - "304 stainless steel"
+    - "304 series stainless steel"
+    - "SS 304"
+    - "SS 201"
+    - "SS 430"
+    - "430 stainless steel"
+    - "430 steel"                 # 430 is a stainless grade
+    - "AISI 430 (18/0)"
+    - "420 stainless steel"
+    - "2CR13"
+
+aluminium:
+  display: "Aluminium"
+  aliases:
+    - "Aluminium"
+    - "Aluminum"
+    - "Aluminium Alloy"
+    - "Anodised Cast Aluminium"
+
+carbon_steel:
+  display: "Carbon Steel"
+  aliases:
+    - "Carbon Steel"
+
+steel:
+  display: "Steel"
+  aliases:
+    - "Steel"
+    - "Steel-DC04"
+    - "Metal"          # generic "Metal" defaults to steel unless the row says otherwise
+    - "MS"             # mild steel
+    - "Mild Steel"
+
+galvanised_steel:
+  display: "Galvanised Steel"
+  aliases:
+    - "Galvanised Steel"
+    - "Galvanized Steel"
+    - "Galvanised Tin"
+
+cast_iron:
+  display: "Cast Iron"
+  aliases:
+    - "Cast Iron"
+
+iron:
+  display: "Iron"
+  aliases:
+    - "Iron"
+    - "Black Iron"
+
+brass:
+  display: "Brass"
+  aliases:
+    - "Brass"
+    - "Brass Plating"
+    - "Brass Plated"
+
+copper:
+  display: "Copper"
+  aliases:
+    - "Copper"
+    - "Copper Plating"
+
+zinc:
+  display: "Zinc"
+  aliases:
+    - "Zinc"
+    - "Zinc Alloy"
+
+# ---------------------------------------------------------------------------
+# Ceramics & stone
+# ---------------------------------------------------------------------------
+
+porcelain:
+  display: "Porcelain"
+  aliases:
+    - "Porcelain"
+    - "China"           # vitrified white-ware grades collapse into porcelain, per the
+    - "Fine China"      # "grades collapse" convention (cf. stainless steel grades).
+    - "Vitrified China" # Bone china is the one exception — see `bone_china` below.
+
+bone_china:
+  display: "Bone China"
+  # Distinct canonical: bone china is a materially different body (bone-ash content)
+  # and is marketed on that basis. Only "Bone China" maps here; all other china
+  # grades fall into `porcelain`.
+  aliases:
+    - "Bone China"
+
+stoneware:
+  display: "Stoneware"
+  aliases:
+    - "Stoneware"
+
+ceramic:
+  display: "Ceramic"
+  aliases:
+    - "Ceramic"
+
+terracotta:
+  display: "Terracotta"
+  aliases:
+    - "Terracotta"
+
+slate:
+  display: "Slate"
+  aliases:
+    - "Slate"
+
+marble:
+  display: "Marble"
+  aliases:
+    - "Marble"
+
+terrazzo:
+  display: "Terrazzo"
+  aliases:
+    - "Terrazzo"
+
+stone:
+  display: "Stone"
+  aliases:
+    - "Stone"
+
+plaster:
+  display: "Plaster"
+  aliases:
+    - "Plaster"
+
+# ---------------------------------------------------------------------------
+# Glass
+# ---------------------------------------------------------------------------
+
+glass:
+  display: "Glass"
+  aliases:
+    - "Glass"
+    - "Soda Lime Glass"
+    - "Soda Lime"
+    - "SodaLime"
+    - "Borosilicate"
+    - "Borosilicate Glass"
+    - "High White Glass"
+    - "Tempered Glass"
+    - "Fully Tempered Glass"
+    - "Foam Glass"
+    - "Fibreglass"
+    - "Fiberglass"
+
+crystalline:
+  display: "Crystalline Glass"
+  # Crystalline glass (lead-free "crystalline") — distinct from both generic glass
+  # and true crystal. Kept separate from `crystal` deliberately.
+  aliases:
+    - "Crystalline Glass"
+    - "Crystalline"
+
+crystal:
+  display: "Crystal"
+  # STRICT: only ever assigned when a supplier explicitly states "crystal". Never
+  # inferred from "glass", "crystalline", "clear" or any near-term — those are their
+  # own canonicals. If the supplier does not say crystal, it is not crystal.
+  aliases:
+    - "Crystal"
+    - "Crystal Glass"
+    - "Lead Crystal"
+
+# ---------------------------------------------------------------------------
+# Wood — common commercial species kept distinct; `wood` is the fallback.
+# "A/B Grade" / "A Grade" suffixes collapse into the species.
+# ---------------------------------------------------------------------------
+
+acacia_wood:
+  display: "Acacia Wood"
+  aliases:
+    - "Acacia Wood"
+    - "Acacia Wood-A Grade"
+    - "Acacia Wood-A/B Grade"
+
+bamboo:
+  display: "Bamboo"
+  aliases:
+    - "Bamboo"
+
+olive_wood:
+  display: "Olive Wood"
+  aliases:
+    - "Olive Wood"
+
+oak_wood:
+  display: "Oak"
+  aliases:
+    - "Oak Wood"
+    - "Oak"
+
+ash_wood:
+  display: "Ash Wood"
+  aliases:
+    - "Ash Wood"
+
+beech_wood:
+  display: "Beech Wood"
+  aliases:
+    - "Beech Wood"
+
+birch_wood:
+  display: "Birch Wood"
+  aliases:
+    - "Birch Wood"
+    - "Laminated Birch Wood"
+
+paulownia_wood:
+  display: "Paulownia Wood"
+  aliases:
+    - "Paulownia Wood"
+
+pine_wood:
+  display: "Pine Wood"
+  aliases:
+    - "Pine Wood"
+    - "Pine wood/Pinus sylvestris var. Mongolica."
+    - "Pine Wood/Pinus massoniana"
+
+rubber_wood:
+  display: "Rubberwood"
+  aliases:
+    - "Rubber Wood"
+    - "Rubberwood"
+    - "Hevea Wood"          # Hevea brasiliensis is the rubberwood tree
+    - "Pine wood Hevea Brasiliensis"
+
+teak:
+  display: "Teak"
+  aliases:
+    - "Teak"
+
+pakka_wood:
+  display: "Pakkawood"
+  aliases:
+    - "Pakka Wood"
+    - "Pakkawood"
+
+eucalyptus_wood:
+  display: "Eucalyptus"
+  aliases:
+    - "Eucalyptus SSP"
+
+plywood:
+  display: "Plywood"
+  aliases:
+    - "Plywood"
+    - "Laminated Ply Wood"
+
+mdf:
+  display: "MDF"
+  aliases:
+    - "MDF Wood"
+    - "MDF"
+
+wood:
+  display: "Wood"
+  aliases:
+    - "Wood"
+    - "Hard Wood"
+    - "Hardwood"
+    - "Wood Veneer"
+    - "Lotus Wood"
+
+# ---------------------------------------------------------------------------
+# Plastics & synthetics — commercially distinct polymers kept separate;
+# `plastic` is the fallback for unspecified or minor polymers.
+# ---------------------------------------------------------------------------
+
+polycarbonate:
+  display: "Polycarbonate"
+  aliases:
+    - "Polycarbonate"
+    - "Plastic-Polycarbonate"
+    - "PC"
+
+polypropylene:
+  display: "Polypropylene"
+  aliases:
+    - "Polypropylene"
+    - "Polypropylene-PP"
+    - "Plastic-Polypropylene"
+    - "Plastic- Expanded Polypropylene"
+    - "Expanded Polypropylene"
+    - "PP"
+
+polyethylene:
+  display: "Polyethylene"
+  aliases:
+    - "Polyethylene"
+    - "Polyethylene-PE"
+    - "Plastic-Polyethylene"
+    - "Plastic-High Density Polyethylene"
+    - "Plastic-Low Density Polyethylene"
+    - "HDPE"
+    - "LDPE"
+    - "PE"
+
+acrylic:
+  display: "Acrylic"
+  aliases:
+    - "Acrylic"
+    - "Plastic-Acrylic"
+    - "PMMA"
+    - "Perspex"          # brand name for acrylic/PMMA
+
+abs:
+  display: "ABS"
+  aliases:
+    - "ABS"
+    - "Plastic-ABS"
+
+polystyrene:
+  display: "Polystyrene"
+  aliases:
+    - "Polystyrene"
+    - "Plastic-Polystyrene"
+    - "PS"
+
+pvc:
+  display: "PVC"
+  aliases:
+    - "PVC"
+    - "Plastic-PVC"
+    - "Plastic-PVC-100%"
+    - "Polyvinyl Chloride"
+    - "Polyvinyl-Chloride-PVC"
+    - "Vinyl"
+
+san:
+  display: "SAN"
+  aliases:
+    - "SAN"
+    - "Plastic-SAN"
+
+polyurethane:
+  display: "Polyurethane"
+  aliases:
+    - "Polyurethane"
+    - "Plastic-Polyurethane"
+
+nylon:
+  display: "Nylon"
+  aliases:
+    - "Nylon"
+    - "Polyamide"
+    - "Plastic- Polyamide"
+
+pet:
+  display: "PET"
+  aliases:
+    - "PET"
+
+melamine:
+  display: "Melamine"
+  aliases:
+    - "Melamine"
+    - "Melamine Resin"
+
+silicone:
+  display: "Silicone"
+  aliases:
+    - "Silicone"
+
+rubber:
+  display: "Rubber"
+  aliases:
+    - "Rubber"
+    - "TPR"          # thermoplastic rubber
+    - "TPE"          # thermoplastic elastomer
+    - "Thermoplastic Elastomer"
+
+plastic:
+  display: "Plastic"
+  aliases:
+    - "Plastic"
+    - "Thermoplastic"
+    - "Plastic-EVA"
+    - "EVA"
+    - "TPX"
+    - "Plastic- Polybutylene"
+    - "Terluran GP-22"
+    - "BPA-Free Plastic"
+    - "Bakelite"
+    - "Bakerlite"        # supplier misspelling of Bakelite
+    - "Co Polyester"     # copolyester (e.g. Tritan) — a plastic, not a textile
+    - "Copolyester"
+    - "Co-Polyester"
+
+# ---------------------------------------------------------------------------
+# Textiles & fibres
+# ---------------------------------------------------------------------------
+
+cotton:
+  display: "Cotton"
+  aliases:
+    - "Cotton"
+    - "Cotton-100%"
+    - "Cotton-75%"
+    - "Cotton-70%"
+    - "Cotton-60%"
+    - "Cotton-35%"
+    - "Polycotton"
+
+polyester:
+  display: "Polyester"
+  aliases:
+    - "Polyester"
+    - "Polyester-70%"
+    - "Polyester-65%"
+    - "Polyester-40%"
+    - "Polyester-30%"
+    - "Terylene"
+
+fabric:
+  display: "Fabric"
+  aliases:
+    - "Fabric"
+    - "Mixed Fibres-25%"
+
+wicker:
+  display: "Wicker"
+  aliases:
+    - "Wicker"
+    - "Polywicker"
+
+rope:
+  display: "Rope"
+  aliases:
+    - "Rope"
+
+# ---------------------------------------------------------------------------
+# Paper & board
+# ---------------------------------------------------------------------------
+
+paper:
+  display: "Paper"
+  aliases:
+    - "Paper"
+    - "Waxed Paper"
+    - "Unsiliconised Paper"
+    - "Carbon Paper"
+
+cardboard:
+  display: "Cardboard"
+  aliases:
+    - "Cardboard"
+
+# ---------------------------------------------------------------------------
+# Other bodies
+# ---------------------------------------------------------------------------
+
+enamel:
+  display: "Enamel"
+  aliases:
+    - "Enamel"
+    - "Enamel Coating"      # enamelware — the enamel is the defining body, not a finish
+
+wax:
+  display: "Wax"
+  aliases:
+    - "Wax"

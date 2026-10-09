@@ -13,7 +13,7 @@ Stages 0 and 9 are paper exercises. Everything else is build. Stage 0 is not opt
 | VM provider, region, size | Stage 1 | Open |
 | SKU check digit | Stage 4 | **Done — mod-11, `MOS-<DEPT>-<NNNNNNN>-<C>`** |
 | Taxonomy tree v1 | Stage 6 | **Done — `taxonomy_v4.md` loaded 8 Oct 2026**, 256 rows in `catalog.taxonomy` |
-| Controlled vocabularies + alias lists | Stage 6 | **Decided, not landed** — `config/vocabularies/` is empty |
+| Controlled vocabularies + alias lists | Stage 6 | **Landed 8 Oct 2026** — four YAMLs in `config/vocabularies/`; alias coverage of Artis/BBP/Beaumont unchecked |
 | Materiality threshold %, margin floor % | Stage 7 | **Done — 5% threshold, 15% floor** |
 | Standard handling time (days) | Stage 8 | **Done — 1 day** |
 | Delivery promise engine | Post-pilot | Config decided + seeded at Stage 4; logic deferred — see spec below |
@@ -24,7 +24,7 @@ Stages 0 and 9 are paper exercises. Everything else is build. Stage 0 is not opt
 | Compliance evidence policy after dropping DoC | Stage 6 | **Done — supplier data sheets are the evidence** |
 | Knife age restriction | Stage 6 | **Done — all knives are 18+** |
 
-**The taxonomy has landed; the vocabularies have not, and Stage 7 is therefore still blocked.** The three-level tree (`docs/taxonomy_v4.md`) was loaded into `catalog.taxonomy` on 8 Oct 2026: **256 rows** — 12 departments each carrying its `sku_prefix`, 64 categories, 180 types. Level 1 is fixed for SKU allocation, everything below it restructurable. The four alias-backed vocabulary lists — Colour with hex values — are still only *decisions*: `config/vocabularies/` is **empty**, so `normalise.py` has nothing to read.
+**The taxonomy and the vocabularies have both landed, so Stage 7 is no longer blocked.** The three-level tree (`docs/taxonomy_v4.md`) was loaded into `catalog.taxonomy` on 8 Oct 2026: **256 rows** — 12 departments each carrying its `sku_prefix`, 64 categories, 180 types. Level 1 is fixed for SKU allocation, everything below it restructurable. The four alias-backed vocabulary lists are in `config/vocabularies/`: colour (23 canonical values, every one with a hex), material (63), finish (24), shape (25). Sourced from the existing Shopify export and the Nevilles sheet; coverage of the Artis, BBP and Beaumont sheets has **not** been checked against the files, so expect the pilot's first runs to send unmapped values to the review queue — that is the designed path, not a fault.
 
 **Why the taxonomy was a hard block, not a tidiness problem.** `catalog.next_mosferics_sku()` resolves `<DEPT>` against a level-1 node and raises when there is none — which, on a clean rebuild that has not yet been seeded, it still will:
 
@@ -679,11 +679,11 @@ and for every view added later.
 
 ## Stage 6 — Taxonomy and vocabularies
 
-**Status: half landed — this stage is not done.** The taxonomy is loaded (8 Oct 2026, 256 rows from `taxonomy_v4.md`; `sku_prefix` on the 12 level-1 nodes, `variant_axes` in option order on every category and type). The four vocabulary lists are agreed but `config/vocabularies/` is empty, so **Stage 7 is still blocked** on `normalise.py` having nothing to read. See the Stage 0 note for the checks.
+**Status: landed, with one exit criterion unverified.** The taxonomy is loaded (8 Oct 2026, 256 rows from `taxonomy_v4.md`; `sku_prefix` on the 12 level-1 nodes, `variant_axes` in option order on every category and type). The four vocabulary YAMLs are in `config/vocabularies/` (same date), structurally checked: every entry has a display and aliases, every colour a hex, and no alias is claimed by two canonical values. **Stage 7 is unblocked.** See the Stage 0 note for the checks.
 
 How the tree was stored, where the docs left it open: `[]` is an **empty array** (explicitly no axis), NULL only on departments; a type carries a **copy** of its category's axes unless the tree overrides it, so any node a product maps to answers for itself; `slug` is Shopify-handle style and `path` is the slugs joined with `/`; descriptive lists after an em dash in `taxonomy_v4.md` are not nodes.
 
-What remains is transcription rather than design — commit the four YAMLs. The method below is the record of how v1 was derived and the guide for extending it: new suppliers add aliases, the tree grows below the frozen Level 1.
+What is not verified is the last clause of *Done when* below: sourced from the existing Shopify export and the Nevilles sheet; coverage of the Artis, BBP and Beaumont sheets has **not** been checked against the files. The gap closes itself as each supplier is ingested and its unmapped values are aliased. The method below is the record of how v1 was derived and the guide for extending it: new suppliers add aliases, the tree grows below the frozen Level 1.
 
 Paper work, but it blocks Stage 7. Do it properly.
 

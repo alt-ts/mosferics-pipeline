@@ -1,0 +1,165 @@
+# config/vocabularies/shape.yaml
+#
+# Controlled vocabulary for Shape (Stage 6 deliverable).
+#
+# Canonical keys are snake_case internal identifiers. `display` is the term we
+# publish. `aliases` are every supplier spelling that normalises to this canonical.
+#
+# Conventions
+# -----------
+# * Shape is the plan/silhouette of the item (round, oval, rectangular…) plus the
+#   established glassware bowl forms the trade buys on (coupe, tulip, flared…).
+# * Do not confuse with SIZE or CAPACITY — those are their own axes (Stage 7).
+# * British spelling is canonical.
+# * Unmapped supplier values go to the NocoDB "Unmapped vocabulary" review view.
+#
+# Aliases are matched case-insensitively after trimming whitespace.
+# Sources: existing Shopify export shape metafields (products_export_1.csv);
+# shape tokens mined from Nevilles product descriptions.
+
+# --- General silhouettes ---
+
+round:
+  display: "Round"
+  aliases:
+    - "Round"
+    - "Rounded"
+    - "Circular"
+
+oval:
+  display: "Oval"
+  aliases:
+    - "Oval"
+
+square:
+  display: "Square"
+  aliases:
+    - "Square"
+
+rectangular:
+  display: "Rectangular"
+  aliases:
+    - "Rectangular"
+    - "Rectangle"
+    - "Oblong"
+
+triangular:
+  display: "Triangular"
+  aliases:
+    - "Triangular"
+    - "Triangle"
+
+hexagonal:
+  display: "Hexagonal"
+  aliases:
+    - "Hexagonal"
+    - "Hexagon"
+
+octagonal:
+  display: "Octagonal"
+  aliases:
+    - "Octagonal"
+    - "Octagon"
+
+cylindrical:
+  display: "Cylindrical"
+  aliases:
+    - "Cylindrical"
+    - "Cylinder"
+
+conical:
+  display: "Conical"
+  aliases:
+    - "Conical"
+    - "Cone"
+
+tapered:
+  display: "Tapered"
+  aliases:
+    - "Tapered"
+
+flared:
+  display: "Flared"
+  aliases:
+    - "Flared"
+    - "Flare"
+
+flat:
+  display: "Flat"
+  aliases:
+    - "Flat"
+    - "Coupe Plate"      # flat coupe-style plate (no rim); distinct from the coupe glass below
+
+curved:
+  display: "Curved"
+  aliases:
+    - "Curved"
+
+straight:
+  display: "Straight"
+  aliases:
+    - "Straight"
+    - "Straight-Sided"
+
+organic:
+  display: "Organic"
+  aliases:
+    - "Organic"
+    - "Irregular"
+    - "Freeform"
+
+# --- Novelty / decorative silhouettes ---
+
+heart:
+  display: "Heart"
+  aliases:
+    - "Heart"
+
+leaf:
+  display: "Leaf"
+  aliases:
+    - "Leaf"
+
+boat:
+  display: "Boat"
+  aliases:
+    - "Boat"
+
+teardrop:
+  display: "Teardrop"
+  aliases:
+    - "Teardrop"
+
+fluted:
+  display: "Fluted"
+  aliases:
+    - "Fluted"
+    - "Ribbed"
+
+# --- Glassware bowl forms ---
+
+coupe:
+  display: "Coupe"
+  aliases:
+    - "Coupe"
+
+tulip:
+  display: "Tulip"
+  aliases:
+    - "Tulip"
+
+balloon:
+  display: "Balloon"
+  aliases:
+    - "Balloon"          # large round bowl — gin/cognac glassware
+
+flute:
+  display: "Flute"
+  aliases:
+    - "Flute"            # tall narrow bowl — champagne/sparkling glassware
+
+stemmed:
+  display: "Stemmed"
+  aliases:
+    - "Stemmed"
+    - "Stemware"

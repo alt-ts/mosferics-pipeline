@@ -1,0 +1,215 @@
+# config/vocabularies/colour.yaml
+#
+# Controlled vocabulary for Colour (Stage 6 deliverable).
+#
+# Canonical keys are snake_case internal identifiers. `display` is the term we
+# publish. `hex` is REQUIRED on every entry — without it Shopify cannot render a
+# swatch. `aliases` are every supplier spelling that normalises to this canonical.
+#
+# Conventions
+# -----------
+# * GLASSWARE DECISION (Stage 6): "clear", "crystal" and "plain" are the same
+#   thing commercially and arrive as all three. They all map to `clear`.
+# * British spelling is canonical: Grey (not Gray), Colour (not Color). Both
+#   spellings are aliased.
+# * METALLIC COLOURS (gold/silver/copper/bronze) are legitimate swatches. Note the
+#   overlap with the material vocabulary — "Copper" as a material tag and "Copper"
+#   as a colour are set on different fields; ingest reads colour from the colour
+#   source, material from the material source. "Chrome" as a surface colour folds
+#   into `silver`; "Chrome Plating" as a finish lives in finish.yaml.
+# * "Stainless"/"Stainless Steel" is a MATERIAL, never a colour — excluded here.
+# * PATTERN values (geometric, animal, floral…) are not colours; a product that is
+#   patterned gets `multicolour` here and the pattern recorded on a separate
+#   pattern field. Do not invent hex for a pattern.
+# * Unmapped supplier values go to the NocoDB "Unmapped vocabulary" review view.
+#
+# Aliases are matched case-insensitively after trimming whitespace.
+# Sources: existing Shopify export colour metafields (products_export_1.csv);
+# colour tokens mined from Nevilles product descriptions. Uropa/Bronze equipment
+# colour is extracted from descriptions at ingest.
+
+clear:
+  display: "Clear"
+  hex: "#F2F4F5"          # transparent glass — light neutral swatch stands in for "no colour"
+  aliases:
+    - "Clear"
+    - "Crystal"
+    - "Plain"
+    - "Transparent"
+    - "Clear Glass"
+
+white:
+  display: "White"
+  hex: "#FFFFFF"
+  aliases:
+    - "White"
+    - "Off White"
+    - "Off-White"
+    - "Whte"              # supplier typo (BBP)
+
+black:
+  display: "Black"
+  hex: "#1A1A1A"
+  aliases:
+    - "Black"
+    - "Matt Black"
+    - "Matte Black"
+
+grey:
+  display: "Grey"
+  hex: "#808080"
+  aliases:
+    - "Grey"
+    - "Gray"
+    - "Slate Grey"
+    - "Slate Gray"
+    - "Smoke"
+    - "Smoked"
+    - "Smoked Glass"
+
+silver:
+  display: "Silver"
+  hex: "#C0C0C0"
+  aliases:
+    - "Silver"
+    - "Chrome"
+    - "Metallic Silver"
+
+charcoal:
+  display: "Charcoal"
+  hex: "#36454F"
+  aliases:
+    - "Charcoal"
+    - "Anthracite"
+
+brown:
+  display: "Brown"
+  hex: "#7B4A2E"
+  aliases:
+    - "Brown"
+    - "Chocolate"
+
+natural:
+  display: "Natural"
+  hex: "#D8C3A5"          # bare wood / unfinished tone
+  aliases:
+    - "Natural"
+    - "Wood"
+    - "Woodgrain"
+
+beige:
+  display: "Beige"
+  hex: "#E8D9B5"
+  aliases:
+    - "Beige"
+    - "Sand"
+    - "Taupe"
+
+cream:
+  display: "Cream"
+  hex: "#F4EAD5"
+  aliases:
+    - "Cream"
+
+ivory:
+  display: "Ivory"
+  hex: "#F5F0E1"
+  aliases:
+    - "Ivory"
+
+red:
+  display: "Red"
+  hex: "#C0392B"
+  aliases:
+    - "Red"
+    - "Burgundy"
+    - "Maroon"
+    - "Neon Red"          # BBP party glassware — neon variants normalise to base colour
+
+orange:
+  display: "Orange"
+  hex: "#E67E22"
+  aliases:
+    - "Orange"
+    - "Terracotta"        # as a colour descriptor; the material is in material.yaml
+    - "Neon Orange"
+
+amber:
+  display: "Amber"
+  hex: "#B8730E"          # amber glass — common Artis glassware tint
+  aliases:
+    - "Amber"
+
+yellow:
+  display: "Yellow"
+  hex: "#F4C430"
+  aliases:
+    - "Yellow"
+    - "Mustard"
+    - "Neon Yellow"
+
+green:
+  display: "Green"
+  hex: "#3B7A57"
+  aliases:
+    - "Green"
+    - "Olive"
+    - "Sage"
+    - "Neon Green"
+
+blue:
+  display: "Blue"
+  hex: "#2E5FA3"
+  aliases:
+    - "Blue"
+    - "Navy"
+    - "Teal"
+    - "Neon Blue"
+
+purple:
+  display: "Purple"
+  hex: "#7D3C98"
+  aliases:
+    - "Purple"
+    - "Violet"
+    - "Aubergine"
+    - "Neon Purple"
+
+pink:
+  display: "Pink"
+  hex: "#E8A6B8"
+  aliases:
+    - "Pink"
+    - "Rose"
+
+gold:
+  display: "Gold"
+  hex: "#D4AF37"
+  aliases:
+    - "Gold"
+    - "Brass"             # brass as a colour descriptor; the material is in material.yaml
+    - "Champagne"
+
+copper:
+  display: "Copper"
+  hex: "#B87333"
+  aliases:
+    - "Copper"
+    - "Rose Gold"
+
+bronze:
+  display: "Bronze"
+  hex: "#8C7853"
+  aliases:
+    - "Bronze"
+    - "Gunmetal"
+
+multicolour:
+  display: "Multicolour"
+  hex: "#BFBFBF"          # neutral placeholder for assorted / patterned items
+  aliases:
+    - "Multicolour"
+    - "Multicolor"
+    - "Assorted"
+    - "Mixed"
+    - "Patterned"
