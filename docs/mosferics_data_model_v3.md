@@ -209,9 +209,22 @@ Attachment level matters: one care guide usually covers an entire range. Version
 
 ## `pricing` — rules in, prices out
 
-**`pricing.rules`** — `rule_id`, `scope_type` (global / supplier / category / product), `scope_id`, `method` (percent_markup / fixed_margin / target_price), `value`, `priority`, `valid_from`
+**`pricing.rules`** — `rule_id`, `scope_type` (global / supplier / category / product), `scope_id`, `supplier_id` (category rules only), `method` (percent_markup / fixed_margin / target_price), `value`, `priority`, `valid_from`
 
-Priority resolves conflicts: a product-level rule beats a category rule beats a supplier rule beats global. This is how you get "highly specific per supplier and per category within supplier" without hardcoding anything.
+Scope resolves conflicts, most specific first: **product > supplier-within-category > category > supplier > global**. `priority` only breaks ties between rules on the same scope. This is how you get "highly specific per supplier and per category within supplier" without hardcoding anything.
+
+**Supplier-within-category is a category rule with `supplier_id` set** (migration 0014). "Artis glassware at 45%" is `scope_type = 'category'`, `scope_id` = the Glassware node, `supplier_id` = Artis. Null `supplier_id` means the category whoever supplies it. The supplier a rule is matched against is the variant's **preferred source** — whose cost is in `cost_basis` — so a multi-source variant re-prices if its preferred source changes. `supplier_id` is a real FK; `scope_id` is polymorphic and is not, so a mistyped category id is accepted and matches nothing.
+
+**Category rules cascade down the tree.** A rule on a node covers every node beneath it, so a department rule prices the whole department until something more specific says otherwise. Two rules of the same kind: the nearest node wins. A supplier-specific rule against a generic one: **the supplier-specific rule wins at any depth** — "Artis + Glassware" on the department beats "Beer Glasses, any supplier" one level nearer the product. That keeps a supplier's terms intact across a branch however many generic rules are added beneath; to vary them deeper, add a supplier-specific rule deeper. None of this is enforced by the table: it is resolution logic `price.py` must implement, recorded in the column comments until then.
+
+| For an Artis pint glass, these rules exist | Winner |
+|---|---|
+| Artis + Glassware (dept) 45% · Beer Glasses (any supplier) 50% | 45% — supplier-specific beats generic |
+| Artis + Glassware (dept) 45% · Artis + Beer Glasses 48% | 48% — same kind, nearest node |
+| Glassware (dept) 40% · Beer Glasses 50% | 50% — same kind, nearest node |
+| Artis supplier rule 35% · Glassware (dept) 40% | 40% — category beats supplier-wide |
+
+The catch-all is one global rule, `fixed_margin` 30 (added 12 Oct 2026): a 30% gross margin, i.e. price = cost ÷ 0.70 — not a 30% markup, which would be a 23% margin.
 
 **`pricing.cost_basis`** — `variant_id`, `cost_per_base_unit`, `source_offer_id`, `computed_at`
 

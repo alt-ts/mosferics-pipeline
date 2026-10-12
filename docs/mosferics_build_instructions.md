@@ -505,6 +505,7 @@ them in this order:
 | `0012` | add `notes` to `ops.review_queue` |
 | `0013` | apply role grants for all four roles |
 | `2b9b2f63d30b` | `review` schema and its three reporting views |
+| `0014` | `pricing.rules.supplier_id` — supplier-within-category rules; cascade and precedence recorded as column comments |
 
 `stock` is not in this list — it is still deferred, and when it lands it must be added to
 `DATA_SCHEMAS` in `0013` and granted in the same migration that creates it.
@@ -583,7 +584,7 @@ Every migration must have a working `downgrade()`. Test each one up, down, and u
 >
 > Six schemas are covered — `raw`, `supplier`, `catalog`, `link`, `ops`, `pricing`. **When `stock` lands, add it to `DATA_SCHEMAS` in `0013`** and grant in the same migration that creates it; a new schema does not inherit anything, because default privileges are per-schema.
 
-**Done when:** `alembic upgrade head` builds the whole database from empty on a clean instance — all six schemas plus `review`, ending at `2b9b2f63d30b` — `downgrade base` tears it down without error, and the Stage 2 role grants are applied so `mos_pipeline` can actually read/write the tables.
+**Done when:** `alembic upgrade head` builds the whole database from empty on a clean instance — all six schemas plus `review`, ending at `0014` — `downgrade base` tears it down without error, and the Stage 2 role grants are applied so `mos_pipeline` can actually read/write the tables.
 
 ---
 
