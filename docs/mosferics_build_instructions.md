@@ -760,7 +760,9 @@ A **runner** sequences them (`ingest → extract → normalise → link → pric
 
 ### Capacity specifics
 
-Model **`capacity_lined` and `capacity_brim` as separate fields.** They differ materially and suppliers publish both, inconsistently, sometimes in the same column. Lined is the variant axis — it is what the trade buys on.
+Model **`capacity_lined` and `capacity_brim` as separate fields.** They differ materially and suppliers publish both, inconsistently, sometimes in the same column.
+
+**Brim is the variant axis** (decided 12 Oct 2026, reversing the earlier "lined is the axis"). The Artis files settled it: every glass has a brim capacity in a column, while only 187 of 3,527 SKUs carry a line mark, and that mark exists only inside the product name — `(CE@175ml)`, `(CE Brim@0.5pt)`, `(Lined@175, 250ml)` — sometimes with two or three lines on one glass. The taxonomy axis `capacity` therefore means brim capacity. The line mark is kept as a second distinguishing value on the variant, because a lined glass and its unlined twin are separate SKUs with the same brim capacity and must not collapse into one variant. "CE" in a name is copied, never interpreted: it writes nothing to `catalog.compliance`.
 
 Expect oz, cl, ml and pint-to-line in the same file. Normalise to ml canonical, retain the raw string.
 
@@ -780,7 +782,7 @@ Harder than Artis by a meaningful margin. Colour and capacity together.
 
 **Option order is fixed per taxonomy node and never varies.** If Colour is option 1 for one product and option 2 for another, storefront selectors come out inconsistent and it is painful to correct afterwards.
 
-BBP likely buries colour in the product name where Artis gave you a column — so this stage also validates your regex extraction path, which Artis will not have exercised.
+BBP likely buries colour in the product name. Artis turned out to do the same — it has no colour column — so the name-extraction path is first exercised at Stage 7, and this stage tests it on a second supplier's naming.
 
 **Done when:** a two-axis BBP range renders correctly in Shopify with a sparse matrix intact and no invented combinations.
 

@@ -1,0 +1,269 @@
+# config/suppliers/artis.yaml
+#
+# Everything the pipeline needs to know that is specific to Artis. Written from
+# a profile of the August 2026 files (3,529 priced SKUs, 3,527 with product
+# data); the numbers quoted in comments are from that profile.
+#
+# Artis sends TWO files that describe the same SKUs:
+#   * a price file   — what we pay, and the pack it is quoted against
+#   * a product file — 60 columns of dimensions, logistics and attributes
+# Each lands as its own batch in raw.*, verbatim. They are joined afterwards.
+#
+# Decisions recorded here (12 Oct 2026):
+#   * BRIM capacity is the variant axis. Every glass has one; only 187 carry a
+#     line mark. The line mark is a second distinguishing value so a lined glass
+#     and its unlined twin stay separate variants.
+#   * A priced SKU with no product data is still loaded (name, brand, cost).
+#     It has no category, so classification sends it to review.
+
+supplier:
+  code: artis
+  name: Artis
+  currency: GBP                      # no currency column; all prices are sterling
+  availability_source: unknown       # no stock or lead-time data in either file
+
+# ---------------------------------------------------------------------- files
+# A missing required column raises. Columns not listed anywhere in this file
+# still land in raw.import_rows, and nowhere else.
+files:
+  price:
+    pattern: "Artis_Price_File_*.csv"
+    format: csv
+    encoding: utf-8
+    key: SKU
+    required_columns:
+      - Product
+      - Brand
+      - SKU
+      - Pack Size
+      - List Price
+      - Your Price
+      - Your Pack Price
+  product:
+    pattern: "Artis_Product_Data_*.csv"
+    format: csv
+    encoding: utf-8
+    key: Part
+    required_columns:
+      - Part
+      - Description
+      - Brand
+      - Category
+      - Type
+      - Style
+      - Primary Material
+      - Finish
+      - Piece Fluid Capacity (cl)
+      - Artis Sales Box Qty (ea)
+
+key_format: '^\d{2}-\d{2}-\d{3}$'    # every SKU in both files; anything else raises
+
+join:
+  primary: price                     # a SKU exists for us because it has a price
+  secondary: product
+  duplicate_key: raise               # both keys are unique today
+  primary_without_secondary: load    # 2 SKUs: 04-21-301, 75-47-131
+  secondary_without_primary: review  # none today; no cost means no offer
+
+# ------------------------------------------------- supplier.supplier_products
+# `source` is file.column. A list is tried in order and the first non-blank wins.
+product:
+  supplier_sku: price.SKU
+  # The product file is the master. The price file's name differs on 8 SKUs
+  # (it writes LCE@ where the product file writes CE@).
+  name_raw: [product.Description, price.Product]
+  brand: [product.Brand, price.Brand]
+  # link.category_map keys on one string and Artis classifies with three
+  # columns (150 combinations), so the key is all three joined.
+  supplier_category_raw:
+    columns: [product.Category, product.Type, product.Style]
+    separator: " > "
+    blank: "-"                       # Type blank on 81 rows, Style on 475
+
+classification_method: mapped_column
+
+name_clean:
+  collapse_whitespace: true          # 6 names carry doubled or trailing spaces
+
+# --------------------------------------------------- supplier.supplier_offers
+# cost_ex_vat is the cost of the PACK, with base_units_per_pack beside it.
+# Your Pack Price = Your Price x Pack Size on all 3,529 rows, to the penny.
+offer:
+  cost_ex_vat: price.Your Pack Price
+  base_units_per_pack: price.Pack Size
+  pack_description: product.Artis Sales Pack   # free text, 51 spellings; never parsed
+  checks:
+    - name: pack_price_is_unit_price_times_pack
+      expr: "Your Pack Price == Your Price * Pack Size"
+      tolerance: 0.01
+      on_fail: raise
+    # The price file wins: it is what the price was quoted against. 4 rows
+    # disagree today and 26 have no sales box quantity.
+    - name: pack_size_agrees_with_product_file
+      compare: [price.Pack Size, product.Artis Sales Box Qty (ea)]
+      on_fail: review
+      on_blank: ignore
+  # Kept in specs for reference; never a cost.
+  list_price: price.List Price
+
+# ------------------------------------------------------------------- capacity
+# Canonical unit is ml. The raw string is always retained.
+capacity:
+  brim:
+    source: product.Piece Fluid Capacity (cl)
+    unit: cl
+    zero_is_blank: true
+    # 3 rows disagree by more than 5 ml; 22 have no ml value at all.
+    cross_check:
+      source: product.Piece Fluid Capacity (ml)
+      unit: ml
+      tolerance_ml: 5
+      on_fail: review
+    # The oz column is not used: 128 rows are neither imperial nor US.
+  # The line mark exists only in the name, as a trailing parenthetical:
+  #   (CE@175ml)  (CE Brim@0.5pt)  (Lined@175, 250ml)  (CE@0.33pt+Nucl.)
+  # 187 names carry one. "CE" is copied, never interpreted: it writes nothing
+  # to catalog.compliance (hard rule 2).
+  line_mark:
+    source: name_raw
+    block: '\((?P<body>[^)]*@[^)]*)\)'
+    strip_from_body: ['\+?\s*Nucl\.?$']
+    # A body is one or more segments. A body the segment pattern cannot consume
+    # completely is kept raw and sent to review, never half-parsed.
+    segment: '(?P<kind>L?CE ?Brim|L?CE|Lined|Brim)@(?P<values>\d+(?:\.\d+)?(?:/\d+)?(?:,\s?\d+(?:\.\d+)?(?:/\d+)?)*)(?P<unit>ml|pt|ltr|lt|oz)\.?'
+    segment_separator: ','
+    kinds:
+      CE: line
+      LCE: line
+      Lined: line
+      CE Brim: brim                  # measured to the brim; no line on the glass
+      CEBrim: brim
+      Brim: brim
+    units:
+      ml: ml
+      ltr: l
+      lt: l
+      pt: imperial_pint
+      oz: imperial_fl_oz
+    # Artis writes thirds of a pint as rounded decimals.
+    value_aliases:
+      imperial_pint:
+        "0.3": "1/3"
+        "0.33": "1/3"
+        "0.66": "2/3"
+    multiple_values: keep_all        # 33 glasses carry two or three lines
+    on_unparsed: review
+  nucleation:
+    # 5 rows are flagged in the column but not the name, 2 the other way round.
+    any_of:
+      - {source: product.Nucleation, equals: "Y"}
+      - {source: name_raw, pattern: 'Nucl\.'}
+
+# ----------------------------------------------------------------------- size
+# Tableware, cutlery and barware carry size in the name: "24cm [9.4\"]",
+# "30x20cm", "50x15x9cm". The first cm measurement is the size.
+size:
+  source: name_raw
+  pattern: '(?P<a>\d+(?:\.\d+)?)(?:x(?P<b>\d+(?:\.\d+)?))?(?:x(?P<c>\d+(?:\.\d+)?))?\s?cm'
+  unit: cm
+  take: first
+
+# -------------------------------------------------------------- vocabularies
+# Unmapped values go to ops.review_queue as entity_type 'vocabulary'.
+vocabulary:
+  material:
+    source: product.Primary Material
+    status: pending_review           # hard rule 3: materials are never auto-verified
+    # "Other" (19 rows) is a non-answer, not a material.
+    treat_as_blank: ["Other"]
+  finish:
+    source: product.Finish
+    # "Polywood Handle" (29 rows) describes a handle, not a finish. Kept in
+    # specs under its own key instead.
+    redirect:
+      "Polywood Handle": handle_material
+  colour:
+    # No colour column. Matched against colour.yaml aliases as whole words in
+    # the name, and PROPOSED only: 827 names hit, 59 of them twice.
+    source: name_raw
+    method: alias_in_name
+    status: proposed
+    multiple_matches: review
+    # Aliases that are never a colour in an Artis name: all 16 "Champagne"
+    # names are buckets, coolers, flutes and saucers.
+    ignore_aliases:
+      - champagne
+
+# ------------------------------------------------------------ safety metadata
+# Hard rule 3: every one of these lands as pending_review, source 'supplier'.
+# "Y" means the supplier states it. Blank means NOT STATED, which is not "no":
+# a blank writes no row at all.
+safety:
+  status: pending_review
+  true_value: "Y"
+  blank: omit
+  flags:
+    dishwasher_safe: product.Dishwasher Safe
+    handwash_only: product.Handwash Only
+    microwave_safe: product.Microwave Safe
+    oven_safe: product.Oven Safe
+    grill_safe: product.Grill Safe
+    freezer_safe: product.Freezer Safe
+  # 7 rows claim both.
+  contradictions:
+    - flags: [dishwasher_safe, handwash_only]
+      on_fail: review
+
+# ---------------------------------------------------------------------- specs
+# Everything else worth keeping, into supplier_products.specs (JSONB).
+# zero_is_blank: Artis writes 0 where it has no value (34 pieces weigh 0 kg).
+specs:
+  range: {source: product.Range}
+  commodity_code: {source: product.Commodity Code}
+  country_of_origin: {source: product.Country of Origin}   # a name, not an ISO code
+  warranty: {source: product.Warranty / Guarantee}
+  list_price: {source: price.List Price, type: decimal}
+  diameter_cm: {source: product.Piece Diameter (cm), type: decimal, zero_is_blank: true}
+  height_cm: {source: product.Piece Height (cm), type: decimal, zero_is_blank: true}
+  length_cm: {source: product.Piece Length (cm), type: decimal, zero_is_blank: true}
+  width_cm: {source: product.Piece Width (cm), type: decimal, zero_is_blank: true}
+  weight_kg: {source: product.Piece Weight (kg), type: decimal, zero_is_blank: true}
+  gauge_mm: {source: product.Piece Gauge (mm), type: decimal, zero_is_blank: true}
+  sales_box_height_cm: {source: product.Artis Sales Box Height (cm), type: decimal, zero_is_blank: true}
+  sales_box_length_cm: {source: product.Artis Sales Box Length (cm), type: decimal, zero_is_blank: true}
+  sales_box_width_cm: {source: product.Artis Sales Box Width (cm), type: decimal, zero_is_blank: true}
+  sales_box_gross_kg: {source: product.Artis Sales Box Gross (kg), type: decimal, zero_is_blank: true}
+  stackable: {source: product.Stackable, type: flag}
+  toughened: {source: product.Toughened, type: flag}
+  tempered: {source: product.Tempered, type: flag}
+  thermal_shock_resistant: {source: product.Thermal Shock Resistant, type: flag}
+  titanium_reinforced: {source: product.Titanium Reinforced, type: flag}
+  laser_cut_rim: {source: product.Laser Cut Rim, type: flag}
+  recycled: {source: product.Recycled, type: flag}
+  lined: {source: product.Lined, type: flag}
+  rack_code: {source: product.GoldPlas Rack Code}
+
+# -------------------------------------------------------------------- barcode
+# Kept, but NOT a matching key and NOT written to catalog.variants.ean without
+# review: the sales barcode is a box-level code (equal to the outer barcode on
+# 3,143 rows), 351 rows share theirs with another SKU, and 65 have lost a
+# leading zero.
+barcode:
+  source: product.Artis Sales Barcode
+  store_as: specs.supplier_barcode
+  use_as_match_key: false
+  validate: gtin_check_digit
+  on_invalid: keep_raw
+
+# ------------------------------------------------------------ variant grouping
+# Which extracted value feeds each taxonomy axis. Grouping itself is proposed
+# by link.py and confirmed by a human; nothing here creates a combination the
+# rows do not contain (hard rule 10).
+variant_axes:
+  capacity:
+    value: capacity.brim
+    qualifier: capacity.line_mark    # keeps lined and unlined twins apart
+  size:
+    value: size
+  colour:
+    value: vocabulary.colour
