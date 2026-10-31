@@ -184,7 +184,7 @@ vocabulary:
       "Polywood Handle": handle_material
   colour:
     # No colour column. Matched against colour.yaml aliases as whole words in
-    # the name, and PROPOSED only: 827 names hit, 59 of them twice.
+    # the name, and PROPOSED only.
     source: name_raw
     method: alias_in_name
     status: proposed
@@ -193,6 +193,14 @@ vocabulary:
     # names are buckets, coolers, flutes and saucers.
     ignore_aliases:
       - champagne
+    # Phrases that contain a colour word without naming a colour: a glass shape
+    # or a food. "Red Wine" and "White Wine" alone are 74 names.
+    ignore_phrases:
+      - Red Wine
+      - White Wine
+      - Ice Cream
+      - Cream Soup
+      - Bouquet Burgundy
 
 # ------------------------------------------------------------ safety metadata
 # Hard rule 3: every one of these lands as pending_review, source 'supplier'.
