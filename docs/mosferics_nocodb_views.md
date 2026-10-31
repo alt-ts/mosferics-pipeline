@@ -343,7 +343,7 @@ corrections above:
 | `ops.channel_publish.publish_status` | `not_published` (default), `pending`, `published` | `0009` |
 | `ops.channel_publish.fulfilment_mode` | `stocked`, `on_demand`, `dropship`, or NULL | `0009` |
 | `ops.review_queue.status` | `open` (default), `resolved`, `dismissed` | `0009` |
-| `ops.review_queue.entity_type` | `product_metadata`, `variant_link`, `variant_price`, `category_map`, `vocabulary`, `image` | `0009` |
+| `ops.review_queue.entity_type` | `product_metadata`, `variant_link`, `variant_price`, `category_map`, `vocabulary`, `image` (`0009`), `supplier_product` (`0015`) | `0009`, `0015` |
 | `ops.channels.type` | `trade_store`, `event_store` | `0009` |
 | **`catalog.images.status`** | **none — nullable free text, no CHECK, no default** | `0005` |
 | **`catalog.products.status`** | **none — free text, defaults to `active`** | `0005` |
@@ -506,7 +506,7 @@ see the gotchas.
 
 While you are on this table, build a second view, **All open review items**: filter
 `status` is `open`, group by `entity_type`. That is the master queue — the one number that
-tells you how much human work is outstanding across all six entity types. The per-table
+tells you how much human work is outstanding across all seven entity types. The per-table
 views above are where the work is *done*; this is where you see it exists.
 
 **Price changes** — on `pricing.variant_prices`

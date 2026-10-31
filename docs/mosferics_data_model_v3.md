@@ -350,7 +350,7 @@ The table only holds config. The **delivery promise engine** that reads it is a 
 
 | Table | Purpose |
 |---|---|
-| `ops.review_queue` | `queue_id`, `entity_type` (product_metadata / variant_link / variant_price / category_map / vocabulary / image), `entity_id`, `issue_type`, `status` (open / resolved / dismissed), `assigned_to`, `created_at`, `resolved_by`, `resolved_at`, `notes` — anything needing human sign-off |
+| `ops.review_queue` | `queue_id`, `entity_type` (product_metadata / variant_link / variant_price / category_map / vocabulary / image / supplier_product), `entity_id`, `issue_type`, `status` (open / resolved / dismissed), `assigned_to`, `created_at`, `resolved_by`, `resolved_at`, `notes` — anything needing human sign-off |
 | `ops.pipeline_runs` | `run_id`, `supplier_id`, `started_at`, `finished_at`, `status`, `summary` (JSONB) — what the staff exe reports back |
 | `ops.shopify_sync` | `channel_id`, `entity`, `entity_id`, `shopify_gid`, `shopify_handle`, `last_synced`, `payload_hash`, `status` |
 
