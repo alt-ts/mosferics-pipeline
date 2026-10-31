@@ -113,7 +113,7 @@ capacity:
     source: product.Piece Fluid Capacity (cl)
     unit: cl
     zero_is_blank: true
-    # 3 rows disagree by more than 5 ml; 22 have no ml value at all.
+    # 2 rows disagree by more than 5 ml; 23 have no ml value, one of them a 0.
     cross_check:
       source: product.Piece Fluid Capacity (ml)
       unit: ml

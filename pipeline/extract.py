@@ -25,6 +25,7 @@ import os
 import re
 from collections import Counter
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
@@ -126,6 +127,7 @@ class SourceBatch:
     batch_id: int
     filename: str
     row_count: int
+    received_at: datetime
 
 
 def is_blank(value: str | None) -> bool:
@@ -608,7 +610,7 @@ def latest_batches(conn: sa.Connection, config: dict) -> dict[str, SourceBatch]:
         raise ExtractError(f"no supplier row for {code!r}; has it been ingested?")
     rows = conn.execute(
         sa.text(
-            "SELECT batch_id, filename, row_count FROM raw.import_batches "
+            "SELECT batch_id, filename, row_count, received_at FROM raw.import_batches "
             "WHERE supplier_id = :supplier_id AND status = :status ORDER BY batch_id"
         ),
         {"supplier_id": supplier_id, "status": LANDED},
@@ -618,7 +620,9 @@ def latest_batches(conn: sa.Connection, config: dict) -> dict[str, SourceBatch]:
         roles = [r for r, e in config["files"].items() if fnmatch.fnmatchcase(batch.filename, e["pattern"])]
         if len(roles) != 1:
             raise ExtractError(f"batch {batch.batch_id} {batch.filename!r} matches file roles {roles}")
-        batches[roles[0]] = SourceBatch(roles[0], batch.batch_id, batch.filename, batch.row_count)
+        batches[roles[0]] = SourceBatch(
+            roles[0], batch.batch_id, batch.filename, batch.row_count, batch.received_at
+        )
     missing = sorted(set(config["files"]) - set(batches))
     if missing:
         raise ExtractError(f"no landed batch for file roles {missing}")
