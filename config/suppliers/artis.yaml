@@ -264,6 +264,19 @@ barcode:
   on_invalid: keep_raw
 
 # ------------------------------------------------------------ variant grouping
+# How SKUs are proposed as one product (rulings of 31 Oct 2026): one product per
+# item type, with size, capacity, colour and line mark as options. SKUs group
+# when these all match, once the options are taken out of the name.
+grouping:
+  key: [brand, supplier_category_raw, specs.range, name_stem]
+  # Removed from the name to leave the stem; colours and line marks too.
+  strip_from_name:
+    - '\[[^\]]*\]'                   # imperial conversions: [12.25oz], [9.4"]
+    - '\b\d+(?:\.\d+)?(?:x\d+(?:\.\d+)?)*\s?(?:cl|ml|ltr|lt|cm|pt)\b\.?'
+  # Word sizes are options. "Mini" and "Tall" are not on this list: they often
+  # describe a different item, so those stay separate products.
+  size_words: [Small, Medium, Large, XL, Extra Large]
+
 # Which extracted value feeds each taxonomy axis. Grouping itself is proposed
 # by link.py and confirmed by a human; nothing here creates a combination the
 # rows do not contain (hard rule 10).
