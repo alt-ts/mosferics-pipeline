@@ -137,6 +137,10 @@ If sourcing ever needs to differ **per channel** (dropship a supplier for events
 
 `ean` replaces the earlier generic `barcode`: it is the core matching column named in the field routing, and it populates Shopify's barcode field on export. `weight_g` / `dims_mm` are shipping-carton logistics, distinct from the spec dimensions that live in `product_metadata`.
 
+**`catalog.variant_options`** — `variant_id`, `axis`, `value`, `canonical_value`, `unit`, `qualifier`; primary key (`variant_id`, `axis`)
+
+A variant's option values, one row per axis. `value` is the selector label as the supplier wrote it ("35.5cl"); `canonical_value` + `unit` are what it filters and sorts on (355, `ml`), set together or not at all. `qualifier` is the second distinguishing value — the line mark that keeps a lined glass apart from its unlined twin at the same brim capacity. Option position is not stored: it is the node's `taxonomy.variant_axes` order. Added in `0016`.
+
 ### Mosferics SKU
 
 Format `MOS-<DEPT>-<NNNNNNN>-<C>`, e.g. `MOS-GLA-0000123-6`. Variant-level, not product-level — a plate in three colours is three SKUs.

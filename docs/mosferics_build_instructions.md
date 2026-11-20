@@ -507,6 +507,7 @@ them in this order:
 | `2b9b2f63d30b` | `review` schema and its three reporting views |
 | `0014` | `pricing.rules.supplier_id` — supplier-within-category rules; cascade and precedence recorded as column comments |
 | `0015` | `ops.review_queue.entity_type` gains `supplier_product`, for faults in what a supplier sent about one SKU |
+| `0016` | `catalog.variant_options` — one row per variant per axis: selector label, canonical value + unit, line-mark qualifier |
 
 `stock` is not in this list — it is still deferred, and when it lands it must be added to
 `DATA_SCHEMAS` in `0013` and granted in the same migration that creates it.
@@ -585,7 +586,7 @@ Every migration must have a working `downgrade()`. Test each one up, down, and u
 >
 > Six schemas are covered — `raw`, `supplier`, `catalog`, `link`, `ops`, `pricing`. **When `stock` lands, add it to `DATA_SCHEMAS` in `0013`** and grant in the same migration that creates it; a new schema does not inherit anything, because default privileges are per-schema.
 
-**Done when:** `alembic upgrade head` builds the whole database from empty on a clean instance — all six schemas plus `review`, ending at `0015` — `downgrade base` tears it down without error, and the Stage 2 role grants are applied so `mos_pipeline` can actually read/write the tables.
+**Done when:** `alembic upgrade head` builds the whole database from empty on a clean instance — all six schemas plus `review`, ending at `0016` — `downgrade base` tears it down without error, and the Stage 2 role grants are applied so `mos_pipeline` can actually read/write the tables.
 
 ---
 
@@ -732,7 +733,7 @@ Glassware colour needs an early decision: "clear", "crystal" and "plain" are the
 
 ## Stage 7 — Artis end to end
 
-**Status (31 Oct 2026): steps 1–4 done on live; `link.py` is next.** The August files are normalised: 3,529 `supplier_products`, 3,529 current `supplier_offers`, 69 open review items. Nothing is in `catalog.*`, `link.*` or `pricing.variant_prices` yet. There is no staging table: `extract.py` holds its rows in memory for `normalise.py`, and canonical values wait in `supplier_products.specs` until `link.py` has a product to attach them to.
+**Status (20 Nov 2026): steps 1–4 done on live; `link.py` written, not yet run.** The August files are normalised: 3,529 `supplier_products`, 3,529 current `supplier_offers`, 69 open review items (as of 31 Oct). `link.py` (steps 5–7) is committed and passes its tests against scratch; `0016` (`catalog.variant_options`) is on live to hold its option values. Nothing is in `catalog.*`, `link.*` or `pricing.variant_prices` yet — the next step is `python -m pipeline.link artis --dry-run`. There is no staging table: `extract.py` holds its rows in memory for `normalise.py`, and canonical values wait in `supplier_products.specs` until `link.py` has a product to attach them to.
 
 First real pilot. Artis is the right choice: capacity variants, and glassware will stress-test unit normalisation harder than anything else in your catalogue.
 
