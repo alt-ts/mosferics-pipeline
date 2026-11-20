@@ -82,6 +82,10 @@ product:
 
 classification_method: mapped_column
 
+# What Pack Size counts, and so what one base unit of a catalog product is.
+# Artis packs count single pieces: a glass, a plate, a spoon.
+base_unit: each
+
 name_clean:
   collapse_whitespace: true          # 6 names carry doubled or trailing spaces
 
