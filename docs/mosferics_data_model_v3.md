@@ -86,7 +86,7 @@ Suppliers send colour variants as separate SKUs on separate rows, so grouping th
 
 Every supplier product gets a link — single-source items get an auto-created 1:1 link at confidence 1.0. Only genuine multi-source candidates and proposed variant groupings enter the review queue.
 
-**`is_preferred` is where preferred source lives.** The Sourcing engine weighs cost and lead time across a variant's links and marks the winner. A single-source variant's sole 1:1 link is preferred by default. It is deliberately the link, not a pointer column on the product or variant, so it can never name a supplier the variant isn't actually linked to — integrity is automatic, not something the builder has to remember to enforce.
+**`is_preferred` is where preferred source lives.** The Sourcing engine (`price.py`) weighs cost and lead time across a variant's links and marks the winner: among its **confirmed** links with a current offer, the lowest cost per base unit, then the shorter lead time, then the link already preferred. Per base unit, not per pack, so a box of 12 at £18 beats a box of 6 at £10. A single-source variant's sole 1:1 link is preferred by default. It is deliberately the link, not a pointer column on the product or variant, so it can never name a supplier the variant isn't actually linked to — integrity is automatic, not something the builder has to remember to enforce.
 
 **Preferred implies confirmed.** Tightened in migration 0007: `is_preferred` requires `status = 'confirmed'`, not merely "not rejected". Sourcing can therefore never be pointed at a match no human has agreed to. Two consequences follow, and both are real work rather than bookkeeping:
 
@@ -238,7 +238,7 @@ The catch-all is one global rule, `fixed_margin` 30 (added 12 Oct 2026): a 30% g
 
 Keyed by channel. Event and trade pricing will not match — different volumes, different margin expectations, different fulfilment economics.
 
-`calculated_price` and `override_price` are separate columns for a reason: a manual price is never wiped by a refresh. `final_price` is `COALESCE(override_price, calculated_price)`.
+`calculated_price` and `override_price` are separate columns for a reason: a manual price is never wiped by a refresh. `final_price` is `COALESCE(override_price, calculated_price)`, a generated column, so the database enforces it and nothing writes it. The gate values (materiality 5%, floor 15%), the VAT rate and the rounding step live in `config/pricing.yaml`: catalogue-wide settings, not rules. Prices are stored ex VAT and rounded half-up to the penny; price endings are not applied.
 
 **Two margins, and they are not the same number.** Hard rule 7 reads as though it forbids `margin_pct`; it does not, because the rule and this column are talking about different quantities:
 
@@ -257,6 +257,9 @@ The snapshot is kept because it cannot be reconstructed. `cost_basis` holds a cu
 - Change at or above the threshold (**5%**) → queued for review
 - Any change pushing margin below the floor (**15%**) → queued regardless of size
 - New product with no prior price → always queued
+- A change auto-approves only a price that is already live (`approved` / `auto_approved`): a small move on a pending or rejected price is not an approval, so it stays queued
+- A live price whose margin falls below the floor because its *cost* rose is queued again, even though the price did not move
+- An override is never written; a calculated change beside it is recorded, and the floor still applies to the override
 
 ### Tiered pricing — forward design (not v1)
 
