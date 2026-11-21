@@ -139,7 +139,7 @@ If sourcing ever needs to differ **per channel** (dropship a supplier for events
 
 **`catalog.variant_options`** — `variant_id`, `axis`, `value`, `canonical_value`, `unit`, `qualifier`; primary key (`variant_id`, `axis`)
 
-A variant's option values, one row per axis. `value` is the selector label as the supplier wrote it ("35.5cl"); `canonical_value` + `unit` are what it filters and sorts on (355, `ml`), set together or not at all. `qualifier` is the second distinguishing value — the line mark that keeps a lined glass apart from its unlined twin at the same brim capacity. Option position is not stored: it is the node's `taxonomy.variant_axes` order. Added in `0016`.
+A variant's option values, one row per axis. `value` is the selector label: the supplier's own figure ("35.5cl"), except that a capacity of a litre or more reads in litres to 2 places ("1.18L", not "118.29cl"); the raw string stays in `supplier_products.specs`; `canonical_value` + `unit` are what it filters and sorts on (355, `ml`), set together or not at all. `qualifier` is the second distinguishing value — the line mark that keeps a lined glass apart from its unlined twin at the same brim capacity. Option position is not stored: it is the node's `taxonomy.variant_axes` order. Added in `0016`.
 
 ### Mosferics SKU
 

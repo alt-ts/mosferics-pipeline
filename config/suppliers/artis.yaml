@@ -205,6 +205,10 @@ vocabulary:
       - Ice Cream
       - Cream Soup
       - Bouquet Burgundy
+      # Range names, not colours. "Modern Rustic Natural Grey Plate" is grey;
+      # read as natural and grey it was ambiguous, and 18 SKUs lost their colour.
+      - Modern Rustic Natural
+      - Natural Stone
 
 # ------------------------------------------------------------ safety metadata
 # Hard rule 3: every one of these lands as pending_review, source 'supplier'.
@@ -288,7 +292,29 @@ variant_axes:
   capacity:
     value: capacity.brim
     qualifier: capacity.line_mark    # keeps lined and unlined twins apart
+    # The brim column is the value, but the name states a capacity too, and on
+    # some rows the two disagree: "Liqueur 7cl" with 23cl in the column. A
+    # variant whose column contradicts its name is not placed; it goes to review
+    # as capacity_name_mismatch. Within tolerance is rounding: 18cl in the name,
+    # 19cl in the column. 7 SKUs exceed 10% on the August files.
+    name_check:
+      # The first capacity in the name, once the line mark is removed.
+      pattern: '(?<![\d.])(?P<value>\d+(?:\.\d+)?)\s?(?P<unit>cl|ml|ltr|lt)\b'
+      units: {cl: cl, ml: ml, ltr: l, lt: l}
+      tolerance_pct: 10
+      # SKUs a human has checked: the column is right and the name is not.
+      # sku: who, when, and why
+      accept: {}
   size:
     value: size
   colour:
     value: vocabulary.colour
+    # Artis names a glass's colour only when it has one: "Ouessant Rocks" beside
+    # "Ouessant Rocks Blue". Inside a group whose other members name a colour, a
+    # member with no colour word becomes Clear, but only when every member is
+    # one and the same see-through material; Clear is not inferred for a plate,
+    # and not across materials (a steel and a polycarbonate pitcher stay apart).
+    # A name with two colour words is ambiguous, not absent, and never defaults.
+    absent_in_group:
+      value: clear
+      materials: [glass, crystal, crystalline, polycarbonate, acrylic, san, pet]

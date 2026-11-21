@@ -181,6 +181,146 @@ def test_joining_an_existing_product_is_checked_against_its_variants():
     assert not p.joiners and "cannot join product 7" in p.conflicts[0].reason
 
 
+# ------------------------------------------- the name against the column
+
+def ml(value, unit="cl", ml_=None):
+    return {"value": str(value), "source_unit": unit, "unit": "ml",
+            "canonical_value": float(ml_ if ml_ is not None else Decimal(str(value)) * (10 if unit == "cl" else 1))}
+
+
+def test_a_capacity_the_name_contradicts_is_left_out_and_queued_alone():
+    p = plan_of(member("1", "Atelier Prestige Carafe 15cl [5.25oz]", capacity_brim=brim(15)),
+                member("2", "Atelier Prestige Carafe 25cl [8.75oz]", capacity_brim=brim(32)),
+                member("3", "Atelier Prestige Carafe 64cl [22.5oz]", capacity_brim=brim(64)))
+    (product,) = p.new_products
+    assert [m.sku for m, _ in product.members] == ["1", "3"]
+    (conflict,) = p.conflicts
+    assert conflict.issue_type == "capacity_name_mismatch" and [m.sku for m in conflict.members] == ["2"]
+    assert "25cl (250 ml)" in conflict.reason and "32cl (320 ml)" in conflict.reason
+    assert p.summary()["skus_capacity_name_mismatch"] == 1 and p.summary()["skus_in_conflict"] == 0
+
+
+@pytest.mark.parametrize("name, column", [
+    ("Maitre Stackable Cup 18cl [6.25oz]", brim(19)),          # 5.6%: rounding
+    ("Conical Jug 1.8ltr [62.5oz]", brim("177.4")),            # litres in the name, cl in the column
+    ("Beer 500ml", ml(48, "cl")),                              # ml in the name
+    ("Munique Beer 0.5pt/ 28cl [9.75oz] (CE Brim@0.5pt)", brim(28)),  # pints are not read; nor is the line mark
+    ("Wine Glass (CE@125ml)", brim(32)),                       # the only capacity is the line mark
+])
+def test_a_capacity_within_tolerance_or_not_in_the_name_is_placed(name, column):
+    assert GROUPER.capacity_mismatch(member("1", name, capacity_brim=column)) is None
+
+
+def test_the_tolerance_is_measured_against_the_name():
+    # 18cl named, 20cl in the column: 2cl is 11% of 18, over the 10% tolerance.
+    assert GROUPER.capacity_mismatch(member("1", "Mozart Cup 18cl", capacity_brim=brim(20)))
+
+
+def test_an_accepted_sku_is_not_checked():
+    config = copy.deepcopy(ARTIS)
+    config["variant_axes"]["capacity"]["name_check"]["accept"] = {"14-00-017": "checked against the sample"}
+    m = member("14-00-017", "Michelangelo Masterpiece Liqueur 7cl [2.5oz]", capacity_brim=brim(23))
+    assert GROUPER.capacity_mismatch(m) and Grouper(config).capacity_mismatch(m) is None
+
+
+def test_the_name_check_ignores_a_node_without_capacity():
+    p = plan_of(member("1", "Liqueur 7cl", capacity_brim=brim(23), size=size("8cm", 8.0)), node=PLATE)
+    assert len(p.new_products) == 1 and not p.conflicts
+
+
+# ---------------------------------------------------------- litre labels
+
+@pytest.mark.parametrize("column, label", [
+    (brim("118.29", 1182.9), "1.18L"),
+    (brim(100, 1000), "1L"),
+    (brim(250, 2500), "2.5L"),
+    (ml(1775, "ml"), "1.78L"),                  # half up
+    (brim("99.5", 995), "99.5cl"),              # under a litre: the supplier's own figure
+    (ml(400, "ml"), "400ml"),
+])
+def test_a_litre_or_more_reads_in_litres(column, label):
+    cap = GROUPER.options(member("1", "x", capacity_brim=column), GLASS.variant_axes)["capacity"]
+    assert cap.value == label and cap.canonical_value == Decimal(str(column["canonical_value"]))
+
+
+def test_the_litre_label_keeps_the_line_mark():
+    o = GROUPER.options(member("1", "x", capacity_brim=brim("118.29", 1182.9), line_mark=line("(CE@1ltr)")),
+                        GLASS.variant_axes)
+    assert o["capacity"].label == "1.18L (CE@1ltr)"
+
+
+def test_two_capacities_that_round_to_one_label_are_a_conflict():
+    ms, os_ = options_for(member("1", "x", capacity_brim=brim("118.29", 1182.9)),
+                          member("2", "x", capacity_brim=brim(118, 1180)))
+    assert resolve_group(ms, os_, GLASS.variant_axes) == "1 and 2 would both show as 1.18L"
+
+
+# ------------------------------------------------------ a silent colour
+
+GLASS_ = {"raw": "Glass", "status": "pending_review", "canonical": ["glass"]}
+STEEL = {"raw": "Steel", "status": "pending_review", "canonical": ["steel"]}
+CERAMIC = {"raw": "Ceramic", "status": "pending_review", "canonical": ["ceramic"]}
+
+
+def test_a_silent_member_of_a_coloured_glass_group_is_clear():
+    p = plan_of(member("1", "Ouessant Rocks 26cl", capacity_brim=brim(26), material=GLASS_),
+                member("2", "Ouessant Rocks Blue 26cl", capacity_brim=brim(26), material=GLASS_,
+                       colour=colour("blue")),
+                member("3", "Ouessant Rocks Olive 26cl", capacity_brim=brim(26), material=GLASS_,
+                       colour=colour("green")))
+    (product,) = p.new_products
+    assert [(m.sku, [o.label for o in o_.values()]) for m, o_ in product.members] == [
+        ("1", ["26cl", "Clear"]), ("2", ["26cl", "Blue"]), ("3", ["26cl", "Green"])]
+    assert [o["colour"].defaulted for _, o in product.members] == [True, False, False]
+    assert list(product.members[0][1]) == ["capacity", "colour"]    # the node's axis order
+
+
+@pytest.mark.parametrize("silent_material, coloured_material, silent_colour", [
+    (CERAMIC, CERAMIC, None),                    # Clear is never inferred for a mug
+    (GLASS_, STEEL, None),                       # nor across materials
+    (GLASS_, GLASS_, colour("natural", "grey")), # two colour words are ambiguous, not silent
+    (None, None, None),                          # no material, no default
+])
+def test_clear_is_not_inferred_elsewhere(silent_material, coloured_material, silent_colour):
+    silent = {"material": silent_material} if silent_material else {}
+    coloured = {"material": coloured_material} if coloured_material else {}
+    if silent_colour:
+        silent["colour"] = silent_colour
+    p = plan_of(member("1", "Pitcher 1.9ltr", capacity_brim=brim(190, 1900), **silent),
+                member("2", "Copper Pitcher 1.9ltr", capacity_brim=brim(190, 1900), colour=colour("copper"),
+                       **coloured))
+    assert not p.new_products and p.conflicts[0].reason.startswith("no colour on 1")
+
+
+def test_a_glass_group_with_no_colours_gets_none():
+    p = plan_of(member("1", "Wine 32cl", capacity_brim=brim(32), material=GLASS_),
+                member("2", "Wine 41cl", capacity_brim=brim(41), material=GLASS_))
+    assert all("colour" not in o for _, o in p.new_products[0].members)
+
+
+def test_a_coloured_joiner_cannot_give_existing_variants_a_colour():
+    linked = member("1", "Cidra Double Old Fashioned 39cl", capacity_brim=brim(39), material=GLASS_, product_id=7)
+    blue = member("2", "Cidra Double Old Fashioned Blue 39cl", capacity_brim=brim(39), material=GLASS_,
+                  colour=colour("blue"))
+    p = build_plan(GROUPER, [linked, blue], {linked.category_raw: GLASS}, {7: GLASS})
+    assert not p.joiners and "existing variants have no colour" in p.conflicts[0].reason
+
+
+def test_a_silent_joiner_of_a_coloured_product_is_clear():
+    linked = member("1", "Cidra Double Old Fashioned Blue 39cl", capacity_brim=brim(39), material=GLASS_,
+                    colour=colour("blue"), product_id=7)
+    plain = member("2", "Cidra Double Old Fashioned 39cl", capacity_brim=brim(39), material=GLASS_)
+    (joiner,) = build_plan(GROUPER, [linked, plain], {linked.category_raw: GLASS}, {7: GLASS}).joiners
+    assert joiner.options["colour"].value == "Clear" and joiner.options["colour"].defaulted
+
+
+def test_an_unknown_default_colour_raises():
+    config = copy.deepcopy(ARTIS)
+    config["variant_axes"]["colour"]["absent_in_group"]["value"] = "transparent"
+    with pytest.raises(LinkError, match="transparent"):
+        Grouper(config)
+
+
 def test_a_config_without_base_unit_raises():
     config = copy.deepcopy(ARTIS)
     del config["base_unit"]
@@ -307,6 +447,24 @@ def test_a_conflict_is_queued_once(conn):
     second = run(conn, config(), dry_run=False)
     assert (first["written"]["review_items"], second["written"]["review_items"]) == (2, 0)
     assert links(conn) == []
+
+
+def test_a_capacity_mismatch_is_queued_once_and_its_group_is_still_placed(conn):
+    add(conn, "01", "Carafe 15cl", capacity_brim=brim(15))
+    add(conn, "02", "Carafe 25cl", capacity_brim=brim(32))
+    add(conn, "03", "Carafe 1.2ltr", capacity_brim=brim("118.29", 1182.9))
+    first = run(conn, config(), dry_run=False)
+    second = run(conn, config(), dry_run=False)
+    assert (first["written"]["review_items"], second["written"]["review_items"]) == (1, 0)
+    queued = conn.execute(sa.text(
+        "SELECT issue_type, notes FROM ops.review_queue q JOIN supplier.supplier_products p "
+        "ON p.supplier_product_id = q.entity_id WHERE p.supplier_sku = '02'")).one()
+    assert queued.issue_type == "capacity_name_mismatch" and queued.notes.startswith("02: the name says 25cl")
+    values = conn.execute(sa.text(
+        "SELECT p.supplier_sku, o.value, o.canonical_value FROM catalog.variant_options o "
+        "JOIN link.variant_links l USING (variant_id) JOIN supplier.supplier_products p USING (supplier_product_id) "
+        "WHERE p.supplier_sku IN ('01', '02', '03') ORDER BY 1")).all()
+    assert [tuple(v) for v in values] == [("01", "15cl", Decimal("150.0")), ("03", "1.18L", Decimal("1182.9"))]
 
 
 def test_handles_and_brands_do_not_collide(conn):

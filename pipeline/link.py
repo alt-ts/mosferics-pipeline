@@ -23,6 +23,13 @@ each member goes to ops.review_queue as `grouping_conflict` and the next run
 tries again. A SKU matching a product created on an earlier run joins that
 product the same way, as a proposed link.
 
+Two YAML rules shape the options. A SKU whose brim column contradicts the
+capacity in its name (`name_check`) is left out of its group and queued as
+`capacity_name_mismatch`, so a wrong figure never becomes a selector label.
+Inside a group whose other members name a colour, a member with none may be
+filled in as Clear (`absent_in_group`), but only for one shared see-through
+material, and the report marks every value filled in that way.
+
 Titles are interim: the name stem, until per-node templates exist. The handle
 is slugged from it once, at creation, and never regenerated (hard rule 8).
 
@@ -41,7 +48,7 @@ import os
 import re
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 from typing import Any
 
@@ -51,10 +58,18 @@ from dotenv import load_dotenv
 
 from pipeline.config import load_supplier_config
 from pipeline.extract import VOCABULARY_DIR, load_aliases, whole_words
+from pipeline.normalise import ML_PER_UNIT, to_ml
 from pipeline.seed_taxonomy import slugify
 
 PIPELINE = "pipeline"
 ISSUE_GROUPING_CONFLICT = "grouping_conflict"
+ISSUE_CAPACITY_NAME_MISMATCH = "capacity_name_mismatch"
+
+# A catalog rule, not a supplier one: every supplier's capacities share one
+# storefront. From a litre up a selector reads in litres, to 2 places, because
+# "118.29cl" is how a spreadsheet writes 1.2 litres, not how a buyer reads it.
+LITRE_LABEL_FROM_ML = Decimal(1000)
+LITRE_LABEL_PLACES = Decimal("0.01")
 
 # Where normalise.py leaves each value a `variant_axes` reference can name.
 AXIS_SOURCES = {
@@ -91,6 +106,9 @@ class Option:
     canonical_value: Decimal | None = None
     unit: str | None = None
     qualifier: str | None = None
+    # Not from the supplier's data: filled in by a YAML rule (absent_in_group).
+    # Shown in the report so the human confirming the group sees it.
+    defaulted: bool = False
 
     @property
     def identity(self) -> tuple:
@@ -135,6 +153,7 @@ class Joiner:
 class Conflict:
     members: tuple[Member, ...]
     reason: str
+    issue_type: str = ISSUE_GROUPING_CONFLICT
 
 
 @dataclass
@@ -153,7 +172,10 @@ class Plan:
             "grouped_products": sum(n for k, n in sizes.items() if k > 1),
             "grouped_skus": sum(k * n for k, n in sizes.items() if k > 1),
             "skus_joining_existing": len(self.joiners),
-            "skus_in_conflict": sum(len(c.members) for c in self.conflicts),
+            "skus_in_conflict": sum(len(c.members) for c in self.conflicts
+                                    if c.issue_type == ISSUE_GROUPING_CONFLICT),
+            "skus_capacity_name_mismatch": sum(len(c.members) for c in self.conflicts
+                                               if c.issue_type == ISSUE_CAPACITY_NAME_MISMATCH),
             "skus_unmapped_category": len(self.unmapped),
             "skus_already_linked": self.already_linked,
         }
@@ -201,10 +223,81 @@ class Grouper:
                                     f"{sorted(AXIS_SOURCES)}")
             self.axes[axis] = rule
 
+        self.name_check = self._compile_name_check(code, self.axes.get("capacity", {}).get("name_check"))
+        self.colour_default = None
+        default = self.axes.get("colour", {}).get("absent_in_group")
+        if default:
+            if default.get("value") not in self.colour_display:
+                raise LinkError(f"{code}: variant_axes.colour.absent_in_group.value {default.get('value')!r} "
+                                "is not in colour.yaml")
+            if not default.get("materials"):
+                raise LinkError(f"{code}: variant_axes.colour.absent_in_group needs materials")
+            self.colour_default = (self.colour_display[default["value"]], frozenset(default["materials"]))
+
         base_unit = config.get("base_unit")
         if not base_unit:
             raise LinkError(f"{code}: no base_unit; catalog.products.base_unit is required")
         self.base_unit = str(base_unit)
+
+    @staticmethod
+    def _compile_name_check(code: str, rule: dict | None) -> dict | None:
+        if not rule:
+            return None
+        prefix = f"{code}: variant_axes.capacity.name_check"
+        pattern = re.compile(rule["pattern"], re.IGNORECASE)
+        if not {"value", "unit"} <= set(pattern.groupindex):
+            raise LinkError(f"{prefix}.pattern needs named groups value and unit")
+        units = {k.casefold(): v for k, v in (rule.get("units") or {}).items()}
+        unknown = sorted(set(units.values()) - set(ML_PER_UNIT))
+        if not units or unknown:
+            raise LinkError(f"{prefix}.units: {unknown or 'none given'}; known units are {sorted(ML_PER_UNIT)}")
+        if "tolerance_pct" not in rule:
+            raise LinkError(f"{prefix}.tolerance_pct is required")
+        return {"pattern": pattern, "units": units, "tolerance": Decimal(str(rule["tolerance_pct"])) / 100,
+                "accept": set((rule.get("accept") or {}).keys())}
+
+    def capacity_mismatch(self, m: Member) -> str | None:
+        """Why the brim column contradicts the capacity in the name, or None."""
+        check = self.name_check
+        brim = m.specs.get("capacity_brim")
+        if not check or not brim or m.sku in check["accept"]:
+            return None
+        name = self.line_mark_block.sub(" ", m.name) if self.line_mark_block else m.name
+        found = check["pattern"].search(name)
+        if not found:
+            return None
+        unit = check["units"].get(found.group("unit").casefold())
+        if unit is None:
+            raise LinkError(f"{m.sku}: name_check matched unit {found.group('unit')!r}, which units does not map")
+        named = to_ml(found.group("value"), unit)
+        column = Decimal(str(brim["canonical_value"]))
+        if named and abs(named - column) / named > check["tolerance"]:
+            return (f"the name says {found.group(0).strip()} ({named.normalize():f} ml) but the brim column "
+                    f"says {brim['value']}{brim['source_unit']} ({column.normalize():f} ml)")
+        return None
+
+    def complete(self, members: list[Member], options: list[dict[str, Option]],
+                 axes: tuple[str, ...]) -> list[dict[str, Option]]:
+        """Fill a colour the YAML says is Clear when the name is silent (absent_in_group)."""
+        if not self.colour_default or "colour" not in axes or len(members) < 2:
+            return options
+        if not any("colour" in o for o in options):
+            return options
+        display, see_through = self.colour_default
+        materials = {tuple((m.specs.get("material") or {}).get("canonical") or ()) for m in members}
+        if len(materials) != 1:
+            return options
+        (material,) = materials
+        if len(material) != 1 or material[0] not in see_through:
+            return options
+        completed = []
+        for m, o in zip(members, options):
+            # Two colour words is ambiguous, not silent: that is never Clear.
+            if "colour" not in o and not (m.specs.get("colour") or {}).get("candidates"):
+                o = {**o, "colour": Option("colour", display, defaulted=True)}
+                o = {a: o[a] for a in axes if a in o}
+            completed.append(o)
+        return completed
 
     def axes_for(self, node: Node) -> tuple[str, ...]:
         """The node's axes this supplier can give a value on, in the node's order."""
@@ -257,7 +350,8 @@ class Grouper:
     def _value(self, axis: str, key: str, m: Member) -> Option | None:
         v = m.specs.get(key)
         if key == "capacity_brim" and v:
-            return Option(axis, f"{v['value']}{v['source_unit']}", Decimal(str(v["canonical_value"])), v["unit"])
+            ml = Decimal(str(v["canonical_value"]))
+            return Option(axis, capacity_label(v, ml), ml, v["unit"])
         if key == "size":
             if v:
                 dims = v.get("dimensions") or []
@@ -273,6 +367,14 @@ class Grouper:
             if len(candidates) == 1:
                 return Option(axis, self.colour_display.get(candidates[0], candidates[0]))
         return None
+
+
+def capacity_label(brim: dict[str, Any], ml: Decimal) -> str:
+    """The selector label: the supplier's own figure, in litres from a litre up."""
+    if ml >= LITRE_LABEL_FROM_ML:
+        litres = (ml / 1000).quantize(LITRE_LABEL_PLACES, rounding=ROUND_HALF_UP).normalize()
+        return f"{litres:f}L"
+    return f"{brim['value']}{brim['source_unit']}"
 
 
 def resolve_group(members: list[Member], options: list[dict[str, Option]], axes: tuple[str, ...]) -> str | None:
@@ -292,6 +394,14 @@ def resolve_group(members: list[Member], options: list[dict[str, Option]], axes:
         if combo in seen:
             return f"{seen[combo]} and {m.sku} have the same options; nothing tells them apart"
         seen[combo] = m.sku
+    # Distinct values can still round to one label, and Shopify keys a variant
+    # on its option strings.
+    labels: dict[tuple, str] = {}
+    for m, o in zip(members, options):
+        shown = tuple(o[a].label if a in o else None for a in axes)
+        if shown in labels:
+            return f"{labels[shown]} and {m.sku} would both show as {' / '.join(x for x in shown if x)}"
+        labels[shown] = m.sku
     return None
 
 
@@ -309,6 +419,10 @@ def build_plan(grouper: Grouper, members: list[Member], category_of: dict[str, N
             existing_members[m.product_id].append(m)
         elif m.category_raw is None or m.category_raw not in category_of:
             plan.unmapped.append(m)
+        elif "capacity" in category_of[m.category_raw].variant_axes and (why := grouper.capacity_mismatch(m)):
+            # Left out of its group, not blocking it: once its capacity is settled
+            # it joins the product the rest of the group became.
+            plan.conflicts.append(Conflict((m,), why, ISSUE_CAPACITY_NAME_MISMATCH))
         else:
             pending[grouper.key(m)].append(m)
 
@@ -324,12 +438,17 @@ def build_plan(grouper: Grouper, members: list[Member], category_of: dict[str, N
             pnode = product_nodes[product_id]
             axes = grouper.axes_for(pnode)
             everyone = existing_members[product_id] + group
-            options = [grouper.options(m, axes) for m in everyone]
+            created = len(existing_members[product_id])
+            options = grouper.complete(everyone, [grouper.options(m, axes) for m in everyone], axes)
             reason = resolve_group(everyone, options, axes) if axes else "its category has no variant axis"
+            if not reason and any(x.defaulted for o in options[:created] for x in o.values()):
+                # Its variants were written without that colour; a joiner cannot
+                # add an option to them.
+                reason = "its existing variants have no colour and the newcomer has one"
             if reason:
                 plan.conflicts.append(Conflict(tuple(group), f"cannot join product {product_id}: {reason}"))
                 continue
-            for m, o in zip(group, options[len(existing_members[product_id]):]):
+            for m, o in zip(group, options[created:]):
                 plan.joiners.append(Joiner(product_id, pnode, m, o))
             continue
         axes = grouper.axes_for(node)
@@ -339,7 +458,7 @@ def build_plan(grouper: Grouper, members: list[Member], category_of: dict[str, N
             for m in group:
                 plan.new_products.append(NewProduct(m.name, node, m.brand, [(m, {})]))
             continue
-        options = [grouper.options(m, axes) for m in group]
+        options = grouper.complete(group, [grouper.options(m, axes) for m in group], axes)
         reason = resolve_group(group, options, axes)
         if reason:
             plan.conflicts.append(Conflict(tuple(group), reason))
@@ -488,20 +607,23 @@ def _write_variant(conn: sa.Connection, product_id: int, node: Node, m: Member,
 
 def _write_conflicts(conn: sa.Connection, conflicts: list[Conflict]) -> int:
     """One open item per member, not raised again while the same reason stands."""
-    existing = {(q.entity_id, q.notes) for q in conn.execute(sa.text(
-        "SELECT entity_id, notes FROM ops.review_queue WHERE entity_type = 'supplier_product' "
-        "AND issue_type = :t"), {"t": ISSUE_GROUPING_CONFLICT})}
+    existing = {(q.entity_id, q.issue_type, q.notes) for q in conn.execute(sa.text(
+        "SELECT entity_id, issue_type, notes FROM ops.review_queue WHERE entity_type = 'supplier_product' "
+        "AND issue_type IN (:g, :c)"), {"g": ISSUE_GROUPING_CONFLICT, "c": ISSUE_CAPACITY_NAME_MISMATCH})}
     inserted = 0
     for c in conflicts:
         skus = ", ".join(m.sku for m in c.members)
         for m in c.members:
-            notes = f"{m.sku}: grouped with {skus}: {c.reason}"
-            if (m.supplier_product_id, notes) in existing:
+            if c.issue_type == ISSUE_GROUPING_CONFLICT:
+                notes = f"{m.sku}: grouped with {skus}: {c.reason}"
+            else:
+                notes = f"{m.sku}: {c.reason}"
+            if (m.supplier_product_id, c.issue_type, notes) in existing:
                 continue
             conn.execute(sa.text(
                 "INSERT INTO ops.review_queue (entity_type, entity_id, issue_type, notes) "
                 "VALUES ('supplier_product', :id, :t, :notes)"),
-                {"id": m.supplier_product_id, "t": ISSUE_GROUPING_CONFLICT, "notes": notes})
+                {"id": m.supplier_product_id, "t": c.issue_type, "notes": notes})
             inserted += 1
     return inserted
 
@@ -523,15 +645,20 @@ def write_report(plan: Plan, path: Path) -> None:
             for m, o in p.members:
                 w.writerow(["grouped" if p.grouped else "single", p.title, p.node.path, m.sku, m.name,
                             " / ".join(x.label for x in o.values()),
-                            "proposed" if p.grouped else "confirmed", ""])
+                            "proposed" if p.grouped else "confirmed", _defaulted(o)])
         for j in plan.joiners:
             w.writerow(["joins", j.product_id, "", j.member.sku, j.member.name,
-                        " / ".join(x.label for x in j.options.values()), "proposed", ""])
+                        " / ".join(x.label for x in j.options.values()), "proposed", _defaulted(j.options)])
         for c in plan.conflicts:
+            outcome = "conflict" if c.issue_type == ISSUE_GROUPING_CONFLICT else c.issue_type
             for m in c.members:
-                w.writerow(["conflict", "", "", m.sku, m.name, "", "", c.reason])
+                w.writerow([outcome, "", "", m.sku, m.name, "", "", c.reason])
         for m in plan.unmapped:
             w.writerow(["unmapped", "", m.category_raw or "", m.sku, m.name, "", "", ""])
+
+
+def _defaulted(options: dict[str, Option]) -> str:
+    return "; ".join(f"{o.axis} {o.value} by default: the name gives none" for o in options.values() if o.defaulted)
 
 
 def run(conn: sa.Connection, config: dict, *, dry_run: bool, report: Path | None = None) -> dict[str, Any]:

@@ -277,6 +277,9 @@ def test_polywood_handle_moves_out_of_finish_and_into_specs():
     ("Annie White Wine 32cl", ()),
     ("Ice Cream Cone", ()),
     ("Red White Wine Glass", ("red",)),             # only the phrase is removed
+    ("Modern Rustic Natural Grey Plate 28.1cm", ("grey",)),  # a range name, not natural
+    ("Modern Rustic Natural Wood Plate 28.1cm", ("natural",)),  # Wood still is
+    ("Natural Stone Dip Dish 9cm", ()),
 ])
 def test_colour_is_found_in_the_name(name, candidates):
     assert stage_one(product=product_row(Description=name)).colour_candidates == candidates
