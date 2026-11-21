@@ -1,0 +1,30 @@
+# config/shopify.yaml
+#
+# How pipeline/shopify/export.py writes a Shopify product CSV. Catalogue-wide,
+# not per supplier. The CSV is the catalogue-sync path: a human imports it,
+# which is the gate (hard rules 9 and 13). Import into a development store
+# first; never into the live store untested.
+
+# Which ops.channels row this export is for, by type.
+channel_type: trade_store
+
+# New products land as drafts, unpublished: importing is not publishing.
+status: draft
+published: false
+
+# Option names on the storefront, per taxonomy variant axis. An axis with no
+# name here raises: an unnamed selector is a broken product page.
+option_names:
+  capacity: Capacity
+  colour: Colour
+  size: Size
+
+# The header for a metafield column, from ops.metafield_map. UNVERIFIED for
+# variant metafields: confirm against a test import on the development store
+# and change this line, not the code, if Shopify expects another form.
+metafield_header: "{name} ({owner}.metafields.{namespace}.{key})"
+
+# Stock is the availability sync's job, never this file's (hard rule 9): the
+# CSV leaves inventory untracked.
+weight_unit: g
+fulfillment_service: manual
