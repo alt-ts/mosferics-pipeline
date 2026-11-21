@@ -65,6 +65,10 @@ def summary(c: sa.Connection) -> None:
         LEFT JOIN pricing.live_margins lm ON lm.variant_id = v.variant_id
         ORDER BY p.title, v.mosferics_sku""")):
         print(f"  {r.title:<26} {r.mosferics_sku}  {r.options:<22} £{r.final_price:>6}  {r.gross_margin}%  {r.status}")
+    print("\nimages (catalog.images):")
+    for r in c.execute(sa.text("SELECT coalesce(status, 'unreviewed') AS status, count(*) n FROM catalog.images "
+                               "GROUP BY 1 ORDER BY 1")):
+        print(f"  {r.status:<36} {r.n}")
     print("\nwaiting for a human in ops.review_queue:")
     for r in c.execute(sa.text("SELECT issue_type, count(*) n FROM ops.review_queue WHERE status = 'open' "
                                "GROUP BY 1 ORDER BY 1")):

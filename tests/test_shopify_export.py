@@ -81,6 +81,13 @@ def test_a_new_product_is_a_draft_and_stock_is_not_tracked():
     assert (r["Status"], r["Published"], r["Variant Inventory Tracker"]) == ("draft", "FALSE", "")
 
 
+def test_a_variant_with_its_own_picture_gets_it_as_its_variant_image():
+    a, b = glass("A", "25cl", 250, colour="Clear"), glass("B", "25cl", 250, colour="Blue")
+    b.image = "https://x/blue.jpg"
+    r = rows(product(a, b, images=[("https://x/clear.jpg", 0), ("https://x/blue.jpg", 1)]))
+    assert [x["Variant Image"] for x in r] == ["", "https://x/blue.jpg"]
+
+
 def test_extra_images_get_rows_of_their_own():
     p = product(glass("A", "25cl", 250), axes=("capacity",), images=[("https://x/1.jpg", 0), ("https://x/2.jpg", 1)])
     r = rows(p)

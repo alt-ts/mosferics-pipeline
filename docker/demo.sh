@@ -44,6 +44,9 @@ python -m pipeline.link demo --report out/demo_groups.csv
 step "review (stand-in): confirm the proposed groupings"
 python docker/demo_review.py confirm-groups
 
+step "images: match the files to SKUs (exact names verified, loose ones for review)"
+python -m pipeline.images demo --report out/demo_images.csv
+
 step "review (stand-in): set the catch-all pricing rule"
 python docker/demo_review.py pricing-rule
 
@@ -56,4 +59,4 @@ python docker/demo_review.py approve-prices
 step "result"
 python docker/demo_review.py summary
 
-printf '\nReports: out/demo_groups.csv, out/demo_prices.csv\n'
+printf '\nReports: out/demo_groups.csv, out/demo_images.csv, out/demo_prices.csv\n'

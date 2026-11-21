@@ -81,6 +81,19 @@ CATEGORY_MAP = {
     STOOL: None,
 }
 
+# The demo bucket's keys, one per case pipeline/images.py handles.
+IMAGES = [
+    # exact, numbered: a product gallery in SKU then number order
+    *[f"demo/{sku}_1.jpg" for sku in ("90-10-001", "90-10-002", "90-10-003", "90-10-004", "90-11-001", "90-11-002",
+                                      "90-20-001", "90-20-002", "90-20-003", "90-21-001", "90-21-002", "90-21-010",
+                                      "90-21-020", "90-30-001", "90-30-002")],
+    "demo/90-10-001_2.jpg",             # a second picture of the same glass
+    "demo/90-12-001.png",               # exact with no number
+    "demo/90-11-010 front.jpg",         # loose: recorded for a human to verify
+    "demo/99-99-999_1.jpg",             # orphan: no such SKU, reported not guessed
+    "demo/90-30-001_1.tif",             # not an image type the supplier config allows
+]
+
 
 def gtin13(body12: str) -> str:
     """A valid EAN-13 in the 200-299 in-store range, which no real product carries."""
@@ -121,7 +134,10 @@ def main() -> None:
             # from one particular database, and the demo builds a fresh one.
             w.writerow([category(cat), len(names), "; ".join(names[:3]), 0, "", "", "synthetic demo data",
                         "map" if path else "manual", path or ""])
-    print(f"wrote {len(ROWS)} SKUs and {len(counts)} category strings to {OUT}")
+    with (OUT / "image_manifest.txt").open("w", encoding="utf-8", newline="\n") as f:
+        f.write("# Synthetic image keys for the demo supplier: no files exist behind them.\n")
+        f.write("\n".join(IMAGES) + "\n")
+    print(f"wrote {len(ROWS)} SKUs, {len(counts)} category strings and {len(IMAGES)} image keys to {OUT}")
 
 
 if __name__ == "__main__":

@@ -116,6 +116,16 @@ vocabulary:
     multiple_matches: review
     ignore_phrases: [Red Wine, White Wine]
 
+# The demo's "bucket" is a list of keys; example.com is reserved for
+# documentation, so none of these URLs resolve.
+images:
+  source: manifest
+  manifest: sample_data/demo/image_manifest.txt
+  base_url: "https://images.example.com/"
+  extensions: [jpg, jpeg, png, webp]
+  exact_suffix: '_(?P<n>\d+)'
+  loose_separators: " -_"
+
 safety:
   status: pending_review             # hard rule 3: never auto-verified
   true_value: "Y"

@@ -1,0 +1,21 @@
+# Synthetic image keys for the demo supplier: no files exist behind them.
+demo/90-10-001_1.jpg
+demo/90-10-002_1.jpg
+demo/90-10-003_1.jpg
+demo/90-10-004_1.jpg
+demo/90-11-001_1.jpg
+demo/90-11-002_1.jpg
+demo/90-20-001_1.jpg
+demo/90-20-002_1.jpg
+demo/90-20-003_1.jpg
+demo/90-21-001_1.jpg
+demo/90-21-002_1.jpg
+demo/90-21-010_1.jpg
+demo/90-21-020_1.jpg
+demo/90-30-001_1.jpg
+demo/90-30-002_1.jpg
+demo/90-10-001_2.jpg
+demo/90-12-001.png
+demo/90-11-010 front.jpg
+demo/99-99-999_1.jpg
+demo/90-30-001_1.tif

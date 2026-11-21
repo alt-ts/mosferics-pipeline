@@ -52,6 +52,7 @@ flowchart LR
 | Normalise | `pipeline/normalise.py` | Resolves values against controlled vocabularies and converts units to canonical (ml for capacity) |
 | Link | `pipeline/link.py` | Maps categories, groups SKUs into products and variants, allocates SKUs, links each supplier SKU to its variant |
 | Price | `pipeline/price.py` | Picks each variant's source, costs it, applies pricing rules and holds changes for approval |
+| Images | `pipeline/images.py` | Matches image files to SKUs by name and records each against its variant |
 | Export | `pipeline/shopify/export.py` | Writes the products that are ready to publish as a Shopify product CSV |
 
 Every step has a `--dry-run` that writes nothing, and every step is idempotent: a
@@ -78,7 +79,7 @@ Seven schemas, each with one job. The full design is in
 | `review` | Read-only views for the reviewer: unmapped categories, missing images, ready to publish |
 
 The schema is built entirely by Alembic migrations (`migrations/versions/`,
-0001 to 0017), including role grants and triggers. `alembic upgrade head` on an
+0001 to 0018), including role grants and triggers. `alembic upgrade head` on an
 empty database produces a working one.
 
 ## Design decisions
@@ -145,8 +146,8 @@ The supplier files are not in this repository because they contain trade prices.
 | | |
 |---|---|
 | **Ran on real data, production database** | Migrations 0001 to 0017; ingest, extract, normalise, link and price for the Artis files; the human review of groupings and prices |
-| **Tested against a scratch database only** | The Shopify CSV export. It has never been imported into a store, and the column format for variant metafields is unverified until it is |
-| **In progress** | Image matching, publish intent, a single runner for the whole sequence |
+| **Tested against a scratch database and in Docker only** | Migration 0018 and image matching (`pipeline/images.py`): the pilot's image bucket was never connected, so it has not run on real files. The Shopify CSV export: it has never been imported into a store, and the column format for variant metafields is unverified until it is |
+| **In progress** | Publish intent, a single runner for the whole sequence |
 | **Designed, not built** | A second supplier with two variant axes (Stage 8), a desktop trigger for non-technical staff (Stage 9), the Shopify API sync and AI-written descriptions (Stage 10), the delivery-date engine |
 
 The build sequence and the reasoning behind each stage are in
@@ -161,7 +162,7 @@ the four roles and two databases on first start, and builds the pipeline image.
 
 ```bash
 docker compose up -d db
-docker compose run --rm pipeline                        # the test suite: 288 tests
+docker compose run --rm pipeline                        # the test suite: 309 tests
 docker compose run --rm pipeline bash docker/demo.sh    # the pipeline end to end
 docker compose down -v                                  # stop and delete the data
 ```
@@ -175,6 +176,9 @@ capacity the name contradicts, two SKUs nothing tells apart, a safety
 contradiction, a pack size the two files disagree on, an unknown material and a
 category left for manual review. The 21 SKUs become 10 products and 17 variants,
 and the six problems end up in the review queue rather than in the catalogue.
+Twenty image keys cover the matching cases: numbered and unnumbered exact
+names (recorded verified), a loose name (left for review), an orphan and a file
+type the supplier config does not allow.
 
 The human review between steps is played by `docker/demo_review.py`, which
 signs everything it confirms or approves as "demo script" and refuses to run
@@ -221,7 +225,7 @@ You need Python 3.12 and PostgreSQL 16.
        .venv/bin/python -m pytest
    ```
 
-   288 tests, 52 of which need the database. Every database test runs inside a
+   309 tests, 58 of which need the database. Every database test runs inside a
    transaction that is rolled back, and the fixtures refuse to run against the
    production database name.
 
@@ -236,7 +240,7 @@ The role setup is `docker/postgres/init-roles.sh`, shared with the Docker setup.
 config/          supplier YAML, vocabularies, taxonomy, pricing and Shopify settings
 docker/          role setup, test and demo scripts for Docker Compose
 docs/            data model, build instructions, NocoDB review views, schema reviews
-migrations/      Alembic migrations, 0001 to 0017
+migrations/      Alembic migrations, 0001 to 0018
 pipeline/        one module per step, plus shopify/
 sample_data/     the synthetic demo supplier and its generator
 tests/           pytest, unit and database tests

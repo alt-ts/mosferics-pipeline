@@ -232,6 +232,22 @@ vocabulary:
       # is a gold stand.
       - + Black Inserts
 
+# --------------------------------------------------------------------- images
+# pipeline/images.py. Files are named by SKU: 14-00-017.jpg or 14-00-017_1.jpg
+# is an exact match, recorded verified (decided 21 Nov 2026); a name that only
+# starts with the SKU and a separator is recorded for a human to verify.
+# NOT CONFIGURED: the pilot's image bucket was never connected to the server,
+# so bucket, region and base_url are placeholders and this has not run on Artis.
+images:
+  source: s3
+  bucket: REPLACE-WITH-BUCKET
+  region: eu-north-1
+  prefix: ""
+  base_url: "https://REPLACE-WITH-BUCKET.s3.eu-north-1.amazonaws.com/"
+  extensions: [jpg, jpeg, png, webp]
+  exact_suffix: '_(?P<n>\d+)'
+  loose_separators: " -_"
+
 # ------------------------------------------------------------ safety metadata
 # Hard rule 3: every one of these lands as pending_review, source 'supplier'.
 # "Y" means the supplier states it. Blank means NOT STATED, which is not "no":

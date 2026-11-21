@@ -17,7 +17,9 @@ Each product's options are its taxonomy node's variant axes, in that order,
 holding exactly the combinations its variants have (hard rule 10). A product of
 one variant with no option values is Shopify's "Title / Default Title".
 Metafield columns come from ops.metafield_map; capacity's numeric value goes in
-the variant-level volume metafield, because option strings sort as text.
+the variant-level volume metafield, because option strings sort as text. A
+variant with a picture of its own gets it as its Variant Image; every verified
+picture of the product is in its gallery.
 
 Prices are ex VAT, as stored. Stock is left untracked: availability is the
 daily sync's, never the catalogue CSV's.
@@ -51,6 +53,7 @@ COLUMNS = [
     "Option1 Name", "Option1 Value", "Option2 Name", "Option2 Value", "Option3 Name", "Option3 Value",
     "Variant SKU", "Variant Grams", "Variant Inventory Tracker", "Variant Fulfillment Service",
     "Variant Price", "Variant Requires Shipping", "Variant Taxable", "Variant Barcode", "Variant Weight Unit",
+    "Variant Image",
     "Image Src", "Image Position", "Image Alt Text", "SEO Title", "SEO Description", "Status",
 ]
 
@@ -82,6 +85,7 @@ class Variant:
     price_status: str | None = None
     publish_status: str | None = None
     options: dict[str, dict[str, Any]] = field(default_factory=dict)  # axis -> option row
+    image: str | None = None  # the first verified picture of this variant, Shopify's Variant Image
 
 
 @dataclass
@@ -171,10 +175,12 @@ def load_export(conn: sa.Connection, settings: dict[str, Any]) -> Export:
     """), {"v": list(variants)}):
         variants[r.variant_id].options[r.axis] = r._asdict()
     for r in conn.execute(sa.text("""
-        SELECT product_id, url, position FROM catalog.images
+        SELECT product_id, variant_id, url, position FROM catalog.images
         WHERE product_id = ANY(:p) AND status = 'verified' ORDER BY product_id, position, image_id
     """), {"p": product_ids}):
         products[r.product_id].images.append((r.url, r.position))
+        if r.variant_id in variants and variants[r.variant_id].image is None:
+            variants[r.variant_id].image = r.url
     for r in conn.execute(sa.text("""
         SELECT product_id, key, value, canonical_value, unit FROM catalog.product_metadata
         WHERE product_id = ANY(:p) AND status = 'verified'
@@ -292,6 +298,7 @@ def product_rows(p: Product, settings: dict[str, Any], mappings: list[Mapping]) 
             "Variant Fulfillment Service": settings["fulfillment_service"],
             "Variant Price": f"{v.price:.2f}", "Variant Requires Shipping": "TRUE", "Variant Taxable": "TRUE",
             "Variant Barcode": v.ean or "", "Variant Weight Unit": settings["weight_unit"],
+            "Variant Image": v.image or "",
         })
         for m in mappings:
             source = v.options.get(m.internal_key) if m.owner_type == "variant" else \
