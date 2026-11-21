@@ -57,7 +57,11 @@ flowchart LR
 | Export | `pipeline/shopify/export.py` | Writes the products that are ready to publish as a Shopify product CSV |
 
 Every step has a `--dry-run` that writes nothing, and every step is idempotent: a
-re-run with nothing changed writes nothing.
+re-run with nothing changed writes nothing. `pipeline/run.py` runs the automated
+steps in order and logs each run, with every step's result and what is left for
+a person, to `ops.pipeline_runs`. The human review is not a step: a run does
+everything that does not need a decision, and the next run after the review
+carries the work a stage further.
 
 Each supplier is described by one YAML file (`config/suppliers/artis.yaml`):
 column mappings, extraction patterns, grouping rules, and the decisions a human
@@ -147,8 +151,7 @@ The supplier files are not in this repository because they contain trade prices.
 | | |
 |---|---|
 | **Ran on real data, production database** | Migrations 0001 to 0017; ingest, extract, normalise, link and price for the Artis files; the human review of groupings and prices |
-| **Tested against a scratch database and in Docker only** | Migrations 0018 and 0019. Image matching (`pipeline/images.py`): the pilot's image bucket was never connected, so it has not run on real files. Publish intent (`pipeline/publish.py`). The Shopify CSV export: it has never been imported into a store, and the column format for variant metafields is unverified until it is |
-| **In progress** | A single runner for the whole sequence |
+| **Tested against a scratch database and in Docker only** | Migrations 0018 and 0019. Image matching (`pipeline/images.py`): the pilot's image bucket was never connected, so it has not run on real files. Publish intent (`pipeline/publish.py`) and the runner (`pipeline/run.py`). The Shopify CSV export: it has never been imported into a store, and the column format for variant metafields is unverified until it is |
 | **Known gaps** | Supplier barcodes stay in `supplier_products.specs` and are never promoted to `catalog.variants.ean`, so the export's barcode column is empty. Safety and material claims are held as `pending_review` in the supplier tables but not yet copied to `catalog.product_metadata`, so the export gate that blocks unreviewed metadata has nothing to block; no unreviewed claim reaches Shopify, because the CSV does not carry those fields |
 | **Designed, not built** | A second supplier with two variant axes (Stage 8), a desktop trigger for non-technical staff (Stage 9), the Shopify API sync and AI-written descriptions (Stage 10), the delivery-date engine |
 
@@ -164,7 +167,7 @@ the four roles and two databases on first start, and builds the pipeline image.
 
 ```bash
 docker compose up -d db
-docker compose run --rm pipeline                        # the test suite: 318 tests
+docker compose run --rm pipeline                        # the test suite: 325 tests
 docker compose run --rm pipeline bash docker/demo.sh    # the pipeline end to end
 docker compose down -v                                  # stop and delete the data
 ```
@@ -183,7 +186,8 @@ names (recorded verified), a loose name (left for review), an orphan and a file
 type the supplier config does not allow. The demo then marks every product for
 the trade store and writes `out/demo_shopify.csv`: 9 products and 16 variants.
 The tenth is held back because its only picture is the loose one still waiting
-for review, and the demo says so.
+for review, and the demo says so. Last, the runner repeats the whole sequence
+and finds nothing to do, which is the idempotency claim tested end to end.
 
 The human review between steps is played by `docker/demo_review.py`, which
 signs everything it confirms or approves as "demo script" and refuses to run
@@ -230,7 +234,7 @@ You need Python 3.12 and PostgreSQL 16.
        .venv/bin/python -m pytest
    ```
 
-   318 tests, 67 of which need the database. Every database test runs inside a
+   325 tests, 69 of which need the database. Every database test runs inside a
    transaction that is rolled back, and the fixtures refuse to run against the
    production database name.
 

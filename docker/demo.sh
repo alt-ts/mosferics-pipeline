@@ -62,6 +62,9 @@ python -m pipeline.publish intend --all --apply
 step "export: write the products that are ready as a Shopify CSV"
 python -m pipeline.shopify.export --out out/demo_shopify.csv --report out/demo_export_report.csv
 
+step "runner: the whole sequence again, logged to ops.pipeline_runs (nothing new, so nothing changes)"
+python -m pipeline.run demo --dir sample_data/demo
+
 step "result"
 python docker/demo_review.py summary
 

@@ -65,6 +65,10 @@ def summary(c: sa.Connection) -> None:
         LEFT JOIN pricing.live_margins lm ON lm.variant_id = v.variant_id
         ORDER BY p.title, v.mosferics_sku""")):
         print(f"  {r.title:<26} {r.mosferics_sku}  {r.options:<22} £{r.final_price:>6}  {r.gross_margin}%  {r.status}")
+    print("\nruns (ops.pipeline_runs):")
+    for r in c.execute(sa.text("SELECT run_id, status, finished_at - started_at AS took, "
+                               "jsonb_array_length(summary->'steps') AS steps FROM ops.pipeline_runs ORDER BY 1")):
+        print(f"  run {r.run_id}: {r.status}, {r.steps} steps in {r.took}")
     print("\nimages (catalog.images):")
     for r in c.execute(sa.text("SELECT coalesce(status, 'unreviewed') AS status, count(*) n FROM catalog.images "
                                "GROUP BY 1 ORDER BY 1")):
