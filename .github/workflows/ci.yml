@@ -1,0 +1,68 @@
+name: CI
+
+# On every push and pull request: build the schema from an empty database,
+# prove the migrations reverse cleanly, then run every test, including the
+# ones that need the database (they are skipped, not passed, without it).
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+
+    env:
+      # Throwaway passwords for a container that lives as long as the job.
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      MOS_OWNER_PASSWORD: ci-owner
+      MOS_PIPELINE_PASSWORD: ci-pipeline
+      MOS_NOCODB_PASSWORD: ci-nocodb
+      MOS_TRIGGER_PASSWORD: ci-trigger
+      MOS_DATABASES: mosferics_test
+      DATABASE_URL: postgresql+psycopg2://mos_owner:ci-owner@localhost/mosferics_test
+      TEST_DATABASE_URL: postgresql+psycopg2://mos_pipeline:ci-pipeline@localhost/mosferics_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install
+        run: pip install -r requirements.txt
+
+      - name: Create roles and database
+        run: bash docker/postgres/init-roles.sh
+
+      - name: Migrations up, down, up
+        # The up/down/up the project runs on scratch before any live migration.
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+
+      - name: Tests
+        # A skipped test here means the database was not reached: fail rather
+        # than report green. -rs names whatever was skipped.
+        run: |
+          set -o pipefail
+          python -m pytest -rs | tee pytest.log
+          if grep -qE '[0-9]+ skipped' pytest.log; then
+            echo "::error::tests were skipped; the database tests did not run"
+            exit 1
+          fi

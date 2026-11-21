@@ -146,7 +146,7 @@ The supplier files are not in this repository because they contain trade prices.
 |---|---|
 | **Ran on real data, production database** | Migrations 0001 to 0017; ingest, extract, normalise, link and price for the Artis files; the human review of groupings and prices |
 | **Tested against a scratch database only** | The Shopify CSV export. It has never been imported into a store, and the column format for variant metafields is unverified until it is |
-| **In progress** | Image matching, publish intent, a single runner for the whole sequence, Docker, CI |
+| **In progress** | Image matching, publish intent, a single runner for the whole sequence, Docker |
 | **Designed, not built** | A second supplier with two variant axes (Stage 8), a desktop trigger for non-technical staff (Stage 9), the Shopify API sync and AI-written descriptions (Stage 10), the delivery-date engine |
 
 The build sequence and the reasoning behind each stage are in
@@ -193,6 +193,11 @@ You need Python 3.12 and PostgreSQL 16.
    288 tests, 52 of which need the database. Every database test runs inside a
    transaction that is rolled back, and the fixtures refuse to run against the
    production database name.
+
+CI (`.github/workflows/ci.yml`) does the same on every push against a fresh
+PostgreSQL 16 container: it creates the roles, runs the migrations up, all the
+way down and up again, then runs the tests, and fails if any test was skipped.
+The role setup is `docker/postgres/init-roles.sh`, shared with the Docker setup.
 
 ## Repository layout
 
