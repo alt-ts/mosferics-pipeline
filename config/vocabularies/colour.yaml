@@ -67,6 +67,19 @@ grey:
     - "Smoked"
     - "Smoked Glass"
 
+# Its own colour, not grey: Artis's Modern Rustic ranges sell Stone beside Grey
+# ("Ceramica Grey Bowl" and "Ceramica Stone Bowl" are two products), so folding
+# one into the other leaves nothing to tell them apart. "Stone Grey" is the
+# Stone colourway, matched whole before "Grey" can be. "Stone" is also a material
+# alias; "Natural Stone" the range is an Artis ignore_phrase.
+stone:
+  display: "Stone"
+  hex: "#A89F91"
+  aliases:
+    - "Stone"
+    - "Stone Grey"
+    - "Stone Gray"
+
 silver:
   display: "Silver"
   hex: "#C0C0C0"
