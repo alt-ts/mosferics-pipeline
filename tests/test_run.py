@@ -12,9 +12,9 @@ from pipeline.run import commands, finish_run, parse_output, run_steps, start_ru
 
 def test_the_steps_run_in_order_and_the_export_only_when_asked():
     planned = commands("demo", files=None, export=None, dry_run=False, skip=set())
-    assert [s for s, _ in planned] == ["ingest", "normalise", "link", "images", "price"]
+    assert [s for s, _ in planned] == ["ingest", "normalise", "link", "promote", "images", "price"]
     planned = commands("demo", files=Path("in"), export=Path("out.csv"), dry_run=False, skip={"images"})
-    assert [s for s, _ in planned] == ["ingest", "normalise", "link", "price", "export"]
+    assert [s for s, _ in planned] == ["ingest", "normalise", "link", "promote", "price", "export"]
     assert dict(planned)["ingest"] == ["pipeline.ingest", "demo", "--dir", "in"]
 
 
@@ -85,7 +85,7 @@ def test_a_run_is_logged_from_running_to_succeeded_with_each_step(conn):
     assert finish_run(conn, run_id, "test_run_new", results, planned) == "succeeded"
     row = run_row(conn, run_id)
     assert row.finished_at is not None and row.supplier_id is not None
-    assert [s["step"] for s in row.summary["steps"]] == ["ingest", "normalise", "link", "price"]
+    assert [s["step"] for s in row.summary["steps"]] == ["ingest", "normalise", "link", "promote", "price"]
     assert row.summary["steps"][-1]["output"] == {"plan": {"variants_priced": 0}}
     assert set(row.summary["waiting"]) == set(waiting(conn, "test_run_new"))
 
@@ -97,5 +97,5 @@ def test_a_run_that_stopped_early_is_failed_and_says_what_did_not_run(conn):
     results = run_steps(planned, execute, echo=lambda _: None)
     assert finish_run(conn, run_id, "test_run_new", results, planned) == "failed"
     summary = run_row(conn, run_id).summary
-    assert summary["not_run"] == ["link", "images", "price"]
+    assert summary["not_run"] == ["link", "promote", "images", "price"]
     assert summary["steps"][-1]["error"] == "normalise failed, nothing written: bad column"

@@ -175,7 +175,7 @@ Format `MOS-<DEPT>-<NNNNNNN>-<C>`, e.g. `MOS-GLA-0000123-6`. Variant-level, not 
 
 Key/value rather than wide columns because the metadata set is open-ended and each field needs its own verification state. Oven-safe can be `verified` while dimensions are still `pending_review`.
 
-**`verified_by` / `verified_at` are not signed for you, and nothing makes them mandatory.** Unlike `link.variant_links`, this table has neither the `(verified_by IS NULL) = (verified_at IS NULL)` pairing constraint nor a signing trigger. Flipping `status` to `verified` therefore **succeeds with both columns null** — no error, and the audit trail for a safety-relevant field quietly has no author. Hard rule 3 makes these the fields that most need one. The fix is the same shape as `0008`'s: a pairing constraint plus a `BEFORE UPDATE` trigger stamping `current_user` and `now()`, in a migration, so it holds regardless of which client wrote the row. Not built as of `2b9b2f63d30b` — see the signing-trigger note under `ops`.
+**Verdicts sign themselves** (`0020`). Moving `status` to `verified` or `rejected` stamps `verified_by` (`current_user`, unless the caller names the reviewer) and `verified_at`; moving back to `pending_review` clears both; and two CHECKs hold a decided row to having both and a pending one to having neither. Until `0020` neither existed, so flipping a safety claim to `verified` succeeded with no author, which is the field hard rule 3 most needs one on. The rows come from `pipeline/promote.py`: every claim the extract marked `pending_review` (the safety flags, and materials), written per product only when every variant of the product makes the same claim; a product whose variants disagree gets no row and a `metadata_conflict` review item, because a product-level claim would be untrue of some of what it sells.
 
 **`catalog.images`** — `image_id`, `product_id`, `variant_id`, `s3_key`, `url`, `position`, `source`, `status`
 
@@ -428,6 +428,7 @@ Not tables. Python modules in `pipeline/` that read and write the above — writ
 | Sourcing | `price.py` | current offers | `is_preferred` on `link.variant_links` |
 | Images | `images.py` | the supplier's image files (S3 or a manifest) | `catalog.images` |
 | Publish intent | `publish.py` | a person's selection; an imported export | `ops.channel_publish` |
+| Promote | `promote.py` | supplier specs, through the variant links | `catalog.variants.ean`, `catalog.product_metadata` (as `pending_review`) |
 | Runner | `run.py` | — | runs the above in order; `ops.pipeline_runs` |
 | Shopify export | `shopify/export.py` | `review.ready_to_publish` | a product CSV (the API sync, `ops.shopify_sync`, was not built) |
 

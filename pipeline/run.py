@@ -1,6 +1,6 @@
 """Run a supplier's automated steps in order, and log the run to ops.pipeline_runs.
 
-    ingest -> normalise -> link -> images -> price [-> export]
+    ingest -> normalise -> link -> promote -> images -> price [-> export]
 
 Each step is the module's own command, run as a subprocess exactly as a person
 would run it, so the runner adds sequencing and a record, not a second way of
@@ -41,7 +41,7 @@ from dotenv import load_dotenv
 
 from pipeline.config import REPO_ROOT, load_supplier_config
 
-STEPS = ("ingest", "normalise", "link", "images", "price", "export")
+STEPS = ("ingest", "normalise", "link", "promote", "images", "price", "export")
 OUTPUT_LINES = 60  # of a step that prints no JSON, the last lines kept in the summary
 
 
@@ -65,6 +65,7 @@ def commands(supplier: str, *, files: Path | None, export: Path | None, dry_run:
         "ingest": ["pipeline.ingest", supplier, *(["--dir", str(files)] if files else []), *dry],
         "normalise": ["pipeline.normalise", supplier, *dry],
         "link": ["pipeline.link", supplier, *dry],
+        "promote": ["pipeline.promote", supplier, *dry],
         "images": ["pipeline.images", supplier, *dry],
         "price": ["pipeline.price", *dry],
     }

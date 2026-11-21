@@ -58,7 +58,9 @@ ROWS = [
     ("90-20-002", "Lumen Coupe Plate White 27cm", PLATE, "Lumen", "Porcelain", "Gloss", 0, 0, 12, 6, "3.40", "DW MW", 27),
     ("90-20-003", "Lumen Coupe Plate Blue 27cm", PLATE, "Lumen", "Porcelain", "Gloss", 0, 0, 12, 12, "3.60", "DW MW", 27),
     ("90-21-001", "Lumen Deep Bowl White 16cm", BOWL, "Lumen", "Porcelain", "Gloss", 0, 0, 12, 12, "2.20", "DW MW", 16),
-    ("90-21-002", "Lumen Deep Bowl Grey 16cm", BOWL, "Lumen", "Porcelain", "Gloss", 0, 0, 12, 12, "2.30", "DW MW", 16),
+    # The Grey bowl says nothing about the microwave while the White one claims it: no
+    # product-level microwave claim can be made for the pair, so it goes to review.
+    ("90-21-002", "Lumen Deep Bowl Grey 16cm", BOWL, "Lumen", "Porcelain", "Gloss", 0, 0, 12, 12, "2.30", "DW", 16),
     # A two-tone colour, matched whole rather than as grey and white.
     ("90-21-010", "Tidal Bowl Grey/White 16cm", BOWL, "Tidal", "Stoneware", "Reactive Glaze", 0, 0, 6, 6, "4.10", "DW", 16),
     # A material the vocabulary does not know: it goes to review, it is not guessed.
@@ -95,6 +97,10 @@ IMAGES = [
 ]
 
 
+# A barcode with a wrong check digit: extracted, kept as received, never put on a variant.
+BAD_BARCODES = {"90-30-002": "2009000000190"}
+
+
 def gtin13(body12: str) -> str:
     """A valid EAN-13 in the 200-299 in-store range, which no real product carries."""
     total = sum(int(d) * (3 if i % 2 else 1) for i, d in enumerate(body12))
@@ -119,7 +125,7 @@ def main() -> None:
         w.writerow(PRODUCT_COLUMNS)
         for n, (sku, name, cat, rng, material, finish, cl, ml, pack, box, _, flags, cm) in enumerate(ROWS):
             w.writerow([sku, name, BRAND, *cat, rng, material, finish, cl or 0, ml or 0, box,
-                        f"1 Box of {box}pcs", gtin13(f"2009000{n:05d}"),
+                        f"1 Box of {box}pcs", BAD_BARCODES.get(sku, gtin13(f"2009000{n:05d}")),
                         "Y" if "DW" in flags else "", "Y" if "HW" in flags else "", "Y" if "MW" in flags else "",
                         cm or 0, "0.25"])
     counts: dict[tuple[str, str, str], list[str]] = {}

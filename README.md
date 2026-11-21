@@ -42,7 +42,7 @@ flowchart LR
     R --> E[extract] --> N[normalise]
     N --> S[(supplier)]
     S --> L[link] --> C[(catalog + link)]
-    C --> P[price] --> PR[(pricing)]
+    C --> M[promote] --> P[price] --> PR[(pricing)]
     PR --> Q{{review in NocoDB}}
     Q --> U[publish intent] --> X[shopify/export] --> CSV[Shopify CSV]
 ```
@@ -53,6 +53,7 @@ flowchart LR
 | Extract | `pipeline/extract.py` | Maps columns and pulls attributes out of names, as the supplier's YAML describes |
 | Normalise | `pipeline/normalise.py` | Resolves values against controlled vocabularies and converts units to canonical (ml for capacity) |
 | Link | `pipeline/link.py` | Maps categories, groups SKUs into products and variants, allocates SKUs, links each supplier SKU to its variant |
+| Promote | `pipeline/promote.py` | Carries supplier barcodes onto variants, and safety and material claims into product metadata, held for review |
 | Price | `pipeline/price.py` | Picks each variant's source, costs it, applies pricing rules and holds changes for approval |
 | Images | `pipeline/images.py` | Matches image files to SKUs by name and records each against its variant |
 | Publish | `pipeline/publish.py` | Records which products are meant for a channel, and which are live there |
@@ -86,7 +87,7 @@ Seven schemas, each with one job. The full design is in
 | `review` | Read-only views for the reviewer: unmapped categories, missing images, ready to publish |
 
 The schema is built entirely by Alembic migrations (`migrations/versions/`,
-0001 to 0019), including role grants and triggers. `alembic upgrade head` on an
+0001 to 0020), including role grants and triggers. `alembic upgrade head` on an
 empty database produces a working one.
 
 ## Design decisions
@@ -153,8 +154,7 @@ The supplier files are not in this repository because they contain trade prices.
 | | |
 |---|---|
 | **Ran on real data, production database** | Migrations 0001 to 0017; ingest, extract, normalise, link and price for the Artis files; the human review of groupings and prices |
-| **Tested against a scratch database and in Docker only** | Migrations 0018 and 0019. Image matching (`pipeline/images.py`): the pilot's image bucket was never connected, so it has not run on real files. Publish intent (`pipeline/publish.py`) and the runner (`pipeline/run.py`). The Shopify CSV export: it has never been imported into a store, and the column format for variant metafields is unverified until it is |
-| **Known gaps** | Supplier barcodes stay in `supplier_products.specs` and are never promoted to `catalog.variants.ean`, so the export's barcode column is empty. Safety and material claims are held as `pending_review` in the supplier tables but not yet copied to `catalog.product_metadata`, so the export gate that blocks unreviewed metadata has nothing to block; no unreviewed claim reaches Shopify, because the CSV does not carry those fields |
+| **Tested against a scratch database and in Docker only** | Migrations 0018 to 0020. Promoting barcodes and claims to the catalog (`pipeline/promote.py`). Image matching (`pipeline/images.py`): the pilot's image bucket was never connected, so it has not run on real files. Publish intent (`pipeline/publish.py`) and the runner (`pipeline/run.py`). The Shopify CSV export: it has never been imported into a store, and the column format for variant metafields is unverified until it is |
 | **Designed, not built** | A second supplier with two variant axes (Stage 8), a desktop trigger for non-technical staff (Stage 9), the Shopify API sync and AI-written descriptions (Stage 10), the delivery-date engine |
 
 The build sequence and the reasoning behind each stage are in
@@ -170,7 +170,7 @@ the four roles and two databases on first start, and builds the pipeline image.
 ```bash
 git clone https://github.com/alt-ts/mosferics-pipeline.git && cd mosferics-pipeline
 docker compose up -d db
-docker compose run --rm pipeline                        # the test suite: 325 tests
+docker compose run --rm pipeline                        # the test suite: 335 tests
 docker compose run --rm pipeline bash docker/demo.sh    # the pipeline end to end
 docker compose down -v                                  # stop and delete the data
 ```
@@ -189,7 +189,11 @@ names (recorded verified), a loose name (left for review), an orphan and a file
 type the supplier config does not allow. The demo then marks every product for
 the trade store and writes `out/demo_shopify.csv`: 9 products and 16 variants.
 The tenth is held back because its only picture is the loose one still waiting
-for review, and the demo says so. Last, the runner repeats the whole sequence
+for review, and the demo says so. Before that, valid barcodes reach the
+variants (one with a bad check digit does not), and the safety and material
+claims wait as product metadata until the stand-in reviewer verifies them; a
+bowl pair where only one claims microwave-safe gets no microwave claim at all,
+and goes to the review queue instead. Last, the runner repeats the whole sequence
 and finds nothing to do, which is the idempotency claim tested end to end.
 
 The human review between steps is played by `docker/demo_review.py`, which
@@ -237,7 +241,7 @@ You need Python 3.12 and PostgreSQL 16.
        .venv/bin/python -m pytest
    ```
 
-   325 tests, 69 of which need the database. Every database test runs inside a
+   335 tests, 78 of which need the database. Every database test runs inside a
    transaction that is rolled back, and the fixtures refuse to run against the
    production database name.
 
@@ -252,7 +256,7 @@ The role setup is `docker/postgres/init-roles.sh`, shared with the Docker setup.
 config/          supplier YAML, vocabularies, taxonomy, pricing and Shopify settings
 docker/          role setup, test and demo scripts for Docker Compose
 docs/            data model, build instructions, NocoDB review views, schema reviews
-migrations/      Alembic migrations, 0001 to 0019
+migrations/      Alembic migrations, 0001 to 0020
 pipeline/        one module per step, plus shopify/
 sample_data/     the synthetic demo supplier and its generator
 tests/           pytest, unit and database tests

@@ -9,6 +9,7 @@ in bulk is exactly what the review gate exists to prevent.
     python docker/demo_review.py confirm-groups
     python docker/demo_review.py pricing-rule
     python docker/demo_review.py approve-prices
+    python docker/demo_review.py verify-claims
     python docker/demo_review.py summary
 """
 from __future__ import annotations
@@ -50,6 +51,14 @@ def approve_prices(c: sa.Connection) -> None:
     n = c.execute(sa.text("UPDATE pricing.variant_prices SET status = 'approved', approved_by = :s "
                           "WHERE status = 'pending_approval'"), {"s": SIGNER}).rowcount
     print(f"approved {n} pending prices, signed {SIGNER!r}")
+
+
+def verify_claims(c: sa.Connection) -> None:
+    # In the real workflow a person checks each claim against the supplier's data
+    # sheet; the 0020 trigger stamps the time, and verified_by names who.
+    n = c.execute(sa.text("UPDATE catalog.product_metadata SET status = 'verified', verified_by = :s "
+                          "WHERE status = 'pending_review'"), {"s": SIGNER}).rowcount
+    print(f"verified {n} supplier claims, signed {SIGNER!r}")
 
 
 def summary(c: sa.Connection) -> None:
@@ -101,7 +110,7 @@ def summary(c: sa.Connection) -> None:
 
 
 STEPS = {"confirm-groups": confirm_groups, "pricing-rule": pricing_rule,
-         "approve-prices": approve_prices, "summary": summary}
+         "approve-prices": approve_prices, "verify-claims": verify_claims, "summary": summary}
 
 
 if __name__ == "__main__":

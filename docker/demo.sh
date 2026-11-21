@@ -44,6 +44,9 @@ python -m pipeline.link demo --report out/demo_groups.csv
 step "review (stand-in): confirm the proposed groupings"
 python docker/demo_review.py confirm-groups
 
+step "promote: barcodes onto variants; safety and material claims into product metadata, for review"
+python -m pipeline.promote demo --report out/demo_promote.csv
+
 step "images: match the files to SKUs (exact names verified, loose ones for review)"
 python -m pipeline.images demo --report out/demo_images.csv
 
@@ -55,6 +58,9 @@ python -m pipeline.price --report out/demo_prices.csv
 
 step "review (stand-in): approve the prices"
 python docker/demo_review.py approve-prices
+
+step "review (stand-in): verify the safety and material claims against the data sheets"
+python docker/demo_review.py verify-claims
 
 step "publish: mark every product for the trade store (a merchandising decision)"
 python -m pipeline.publish intend --all --apply
@@ -70,7 +76,7 @@ python docker/demo_review.py summary
 
 cat <<'EOT'
 
-Reports: out/demo_groups.csv, out/demo_images.csv, out/demo_prices.csv,
+Reports: out/demo_groups.csv, out/demo_promote.csv, out/demo_images.csv, out/demo_prices.csv,
          out/demo_shopify.csv (import into a development store), out/demo_export_report.csv
 After a human has imported the CSV and checked it, record it as live:
     python -m pipeline.publish published --csv out/demo_shopify.csv --apply

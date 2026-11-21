@@ -513,6 +513,7 @@ them in this order:
 | `0017` | `pricing.sign_price_decision()` signs approvals and rejections by role; `mos_pipeline` may read `review`; the capacity → `custom.volume` metafield mapping |
 | `0018` | `catalog.images.variant_id` (composite FK to the variant's own product), unique `s3_key`, and a CHECK on image `status` |
 | `0019` | `review.ready_to_publish` requires publish intent (`pending`), not merely "not published" |
+| `0020` | `catalog.sign_metadata_verdict()` signs metadata verdicts; a verdict must carry a signer and a time |
 
 `stock` is not in this list — it is still deferred, and when it lands it must be added to
 `DATA_SCHEMAS` in `0013` and granted in the same migration that creates it.
@@ -591,9 +592,9 @@ Every migration must have a working `downgrade()`. Test each one up, down, and u
 >
 > Six schemas are covered — `raw`, `supplier`, `catalog`, `link`, `ops`, `pricing`. **When `stock` lands, add it to `DATA_SCHEMAS` in `0013`** and grant in the same migration that creates it; a new schema does not inherit anything, because default privileges are per-schema.
 
-**Status: done.** Production stopped at `0017`; `0018` and `0019` were tested up/down/up on scratch and are built from empty by CI and Docker on every run.
+**Status: done.** Production stopped at `0017`; `0018` to `0020` were tested up/down/up on scratch and are built from empty by CI and Docker on every run.
 
-**Done when:** `alembic upgrade head` builds the whole database from empty on a clean instance — all six schemas plus `review`, ending at `0019` — `downgrade base` tears it down without error, and the Stage 2 role grants are applied so `mos_pipeline` can actually read/write the tables.
+**Done when:** `alembic upgrade head` builds the whole database from empty on a clean instance — all six schemas plus `review`, ending at `0020` — `downgrade base` tears it down without error, and the Stage 2 role grants are applied so `mos_pipeline` can actually read/write the tables.
 
 ---
 
@@ -746,9 +747,9 @@ Glassware colour needs an early decision: "clear", "crystal" and "plain" are the
 
 *How it got there.* The first `link.py` dry run led to a name-against-column capacity check (`variant_axes.capacity.name_check`, 10%), Clear for a colourless member of a coloured group of one see-through material (`absent_in_group`), and litre labels from 1 litre up. The colour vocabulary grew three ways: two Artis range names in `ignore_phrases` ("Modern Rustic Natural", "Natural Stone"); **Stone** as its own colour (`#A89F91`), because Modern Rustic sells it beside Grey and as an alias of grey about 38 SKUs could not be told apart; and four **two-tone colours** (Black & White, Grey & White, Brown & Black, Beige & Grey), each matched whole, so the 2in1 range (23 SKUs, 5 products) could group. `normalise.py` re-ran after each change, and a diff against production before each write confirmed only colour specs moved. The review decisions a human made are recorded per SKU in `artis.yaml`, each with who, when and why: `safety.contradictions.keep` (7 SKUs keep `handwash_only`, still `pending_review`), `name_check.accept` (9 SKUs where the brim column is right), `offer.checks...accept` (4 pack sizes where the price file wins) and `capacity.line_mark.corrections` (3 marks the parser could not read). **77-00-093 Summit Hi-Ball is left out on purpose**: its brim column holds the name's oz figure, and the name check keeps it out until the supplier corrects it.
 
-*Built after the pilot, scratch and Docker only.* Image matching (`pipeline/images.py`, migration `0018`): the pilot's image bucket was never connected, so the Artis `images` config is a labelled placeholder and it has not run on real files. Publish intent (`pipeline/publish.py`, migration `0019`). The Shopify CSV export (`pipeline/shopify/export.py`), never imported into a store. The runner (`pipeline/run.py`). All four run end to end in the Docker demo on a synthetic supplier (`config/suppliers/demo.yaml`).
+*Built after the pilot, scratch and Docker only.* Promoting supplier facts to the catalog (`pipeline/promote.py`, migration `0020`): valid barcodes onto `catalog.variants.ean`, and safety and material claims into `catalog.product_metadata` as `pending_review`, which makes the export's "nothing pending review" gate bite. Image matching (`pipeline/images.py`, migration `0018`): the pilot's image bucket was never connected, so the Artis `images` config is a labelled placeholder and it has not run on real files. Publish intent (`pipeline/publish.py`, migration `0019`). The Shopify CSV export (`pipeline/shopify/export.py`), never imported into a store. The runner (`pipeline/run.py`). All four run end to end in the Docker demo on a synthetic supplier (`config/suppliers/demo.yaml`).
 
-*Left open when the project stopped.* The real per-supplier and per-category pricing rules (Stage 9). 17 SKUs placed before the colour changes keep stale options (no colour option; three Nara groups titled "Nara & Bowl"), because `link.py` never revisits a placed SKU. Supplier barcodes are never promoted to `catalog.variants.ean`, so the export's barcode column is empty. Safety and material claims are not yet copied from `supplier_products.specs` to `catalog.product_metadata`, so the export's "nothing pending review" gate has nothing to block (no unreviewed claim reaches Shopify, because the CSV does not carry those fields).
+*Left open when the project stopped.* The real per-supplier and per-category pricing rules (Stage 9). 17 SKUs placed before the colour changes keep stale options (no colour option; three Nara groups titled "Nara & Bowl"), because `link.py` never revisits a placed SKU.
 
 There is no staging table: `extract.py` holds its rows in memory for `normalise.py`, and canonical values wait in `supplier_products.specs` until `link.py` has a product to attach them to.
 
