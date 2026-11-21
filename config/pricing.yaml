@@ -1,0 +1,23 @@
+# config/pricing.yaml
+#
+# Catalogue-wide pricing settings read by pipeline/price.py. Not per supplier:
+# what a supplier's goods sell for is a pricing.rules row, never this file.
+# Stage 0 locked the two gate values below.
+
+# A calculated price that moves by this much or more, against the live price
+# it replaces, waits for a human. Below it, the change is approved by the
+# pipeline and logged as auto_approved.
+materiality_pct: 5
+
+# A price whose margin at calculation time is under this waits for a human,
+# however small the change. Gross margin: (price - cost) / price.
+margin_floor_pct: 15
+
+# Prices are stored ex VAT, as the trade store quotes them. vat_rate is
+# written beside each price for whatever later shows a VAT-inclusive figure.
+prices_include_vat: false
+vat_rate: 0.20
+
+# Every calculated price is rounded half-up to this step. Price endings
+# (.99, .49) are not applied here.
+rounding: "0.01"
