@@ -92,7 +92,7 @@ Every supplier product gets a link — single-source items get an auto-created 1
 
 - **The auto-created 1:1 link must be written as `confirmed`.** Single-source items are preferred by default, so `link.py` has to insert them with `status = 'confirmed'`. Recording such a link as confirmed is consistent with the rule above — it is never something a human is asked about, so confirmed is the honest state rather than a shortcut. But it is the pipeline asserting a confirmation, which is why every confirmation is signed.
 
-  **Confirmations sign themselves.** Migration 0008 added `link.sign_confirmation()`, a `BEFORE INSERT OR UPDATE` trigger that fires when a row is confirmed with no `confirmed_by`, and fills in `current_user` and `now()`. So confirming is a single write for everyone: the reviewer ticks the status in NocoDB and the row signs as `mos_nocodb`; the pipeline may write `confirmed_by = 'pipeline'` explicitly and the trigger leaves it alone. `ck_variant_links_confirmed_has_confirmer` states the rule and is left as a backstop the trigger prevents anyone reaching.
+  **Confirmations sign themselves.** Migration 0008 added `link.sign_confirmation()`, a `BEFORE INSERT OR UPDATE` trigger that fires when a row is confirmed with no `confirmed_by`, and fills in `current_user` and `now()`. So confirming is a single write for everyone: The reviewer ticks the status in NocoDB and the row signs as `mos_nocodb`; the pipeline may write `confirmed_by = 'pipeline'` explicitly and the trigger leaves it alone. `ck_variant_links_confirmed_has_confirmer` states the rule and is left as a backstop the trigger prevents anyone reaching.
 
   What `current_user` records is the **role, not the individual** — a NocoDB edit is `mos_nocodb`, the pipeline is `mos_pipeline` unless it names itself. That preserves the distinction that matters here, human-via-NocoDB versus machine, without needing a database role per person. If per-person attribution is ever wanted, have NocoDB write the logged-in user into `confirmed_by`; the trigger will then not touch it.
 
@@ -177,9 +177,11 @@ Key/value rather than wide columns because the metadata set is open-ended and ea
 
 **`verified_by` / `verified_at` are not signed for you, and nothing makes them mandatory.** Unlike `link.variant_links`, this table has neither the `(verified_by IS NULL) = (verified_at IS NULL)` pairing constraint nor a signing trigger. Flipping `status` to `verified` therefore **succeeds with both columns null** — no error, and the audit trail for a safety-relevant field quietly has no author. Hard rule 3 makes these the fields that most need one. The fix is the same shape as `0008`'s: a pairing constraint plus a `BEFORE UPDATE` trigger stamping `current_user` and `now()`, in a migration, so it holds regardless of which client wrote the row. Not built as of `2b9b2f63d30b` — see the signing-trigger note under `ops`.
 
-**`catalog.images`** — `image_id`, `product_id`, `s3_key`, `url`, `position`, `source`, `status`
+**`catalog.images`** — `image_id`, `product_id`, `variant_id`, `s3_key`, `url`, `position`, `source`, `status`
 
-**`images.status` is deliberately unconstrained — and that has a cost worth stating.** Unlike `product_metadata.status`, it carries no CHECK, no default and is nullable, because the image pipeline's review states were not settled when `0005` was written. The convention is the same three values (`pending_review` / `verified` / `rejected`), but the database does not enforce it and an image inserted without one is **NULL**, not pending.
+**An image may belong to a variant** (`0018`). Suppliers name files by SKU, and a SKU is a variant: a colour range shows a different picture per colour, which Shopify carries as the variant's image. `variant_id` is null for a picture of the product as a whole. The foreign key is composite, `(variant_id, product_id)` against `catalog.variants`, so an image cannot name a variant of some other product. `s3_key` is unique, which is what makes the matcher (`pipeline/images.py`) unable to record a file twice.
+
+**`images.status` is NULL until reviewed, then `verified` or `rejected`.** `0005` left it unconstrained because the image pipeline's review states were not settled; `0018` holds it to those three, the values the review views were written against. NULL, not a `pending_review` value, is the unreviewed state: the matcher writes `verified` for a file named exactly by SKU (`14-00-017_1.jpg`, a decision taken per supplier) and NULL for a looser name, for a human to judge.
 
 Any query asking "does this product have a usable image?" must therefore be NULL-safe: `status <> 'rejected'` evaluates to NULL for an unset status, so the row vanishes from an `EXISTS` and the product reads as having *no* image at all. Use `status IS DISTINCT FROM 'rejected'`. This is not hypothetical — it is the bug `review.missing_images` was corrected for before it ever ran. A publish *gate* is the one place strict `status = 'verified'` is right, because there NULL failing is the safe direction.
 
@@ -233,6 +235,8 @@ The catch-all is one global rule, `fixed_margin` 30 (added 12 Oct 2026): a 30% g
 **`pricing.cost_basis`** — `variant_id`, `cost_per_base_unit`, `source_offer_id`, `computed_at`
 
 **`pricing.variant_prices`** — `variant_id`, `channel_id`, `calculated_price`, `override_price`, `final_price`, `vat_rate`, `margin_pct`, `status` (pending_approval / auto_approved / approved / rejected), `approved_by`
+
+**A price decision signs itself** (`0017`). Moving a price to `approved` or `rejected` with no `approved_by` fills in `current_user`, as `0008` does for links, so an approval in NocoDB reads `mos_nocodb`; a named approver is kept; `auto_approved` is signed `pipeline`; moving back to `pending_approval` clears it. Only a change of status signs, so a recalculation or an override edit keeps its signer.
 
 **`auto_approved` and `approved` are both live prices**; the distinction is only *how* they got there, which is what the materiality threshold below decides. Anything asking "is this price usable?" must accept both — `status = 'approved'` alone silently excludes every price that cleared the 5% threshold without a human, which at that threshold is the majority of the catalogue. The two to exclude are `pending_approval` and `rejected`.
 
@@ -335,6 +339,8 @@ Create this with one row now, exactly as `stock.locations` is created with one w
 
 **`ops.channel_publish`** — `variant_id`, `channel_id`, `publish_status` (not_published / pending / published), `fulfilment_mode` (stocked / on_demand / dropship)
 
+**`publish_status` is intent, then fact.** `not_published`: known, not meant for this channel, or withdrawn. `pending`: publish intent, export it once everything else is ready. `published`: live. `pipeline/publish.py` writes it per product (all variants move together, because the export sends whole products): `intend`, `withdraw`, and `published` once a human has imported an export and checked it. `review.ready_to_publish` requires `pending` (`0019`); before that it tested `<> 'published'`, so a withdrawn row still counted as ready.
+
 `fulfilment_mode` moves here from `catalog.products`. It is a **product × channel** property, not a product one: a pallet of cups is drop-shipped direct for an event and routed through the warehouse for a trade order. Same product, two modes.
 
 Note the third mode. Trade orders are `stocked` or `on_demand` (both transit our warehouse); event orders add true `dropship`, where goods never touch us.
@@ -358,7 +364,7 @@ The table only holds config. The **delivery promise engine** that reads it is a 
 | Table | Purpose |
 |---|---|
 | `ops.review_queue` | `queue_id`, `entity_type` (product_metadata / variant_link / variant_price / category_map / vocabulary / image / supplier_product), `entity_id`, `issue_type`, `status` (open / resolved / dismissed), `assigned_to`, `created_at`, `resolved_by`, `resolved_at`, `notes` — anything needing human sign-off |
-| `ops.pipeline_runs` | `run_id`, `supplier_id`, `started_at`, `finished_at`, `status`, `summary` (JSONB) — what the staff exe reports back |
+| `ops.pipeline_runs` | `run_id`, `supplier_id`, `started_at`, `finished_at`, `status`, `summary` (JSONB) — one row per `pipeline/run.py` run, with each step's output and what is waiting for a person; what the staff exe would report back |
 | `ops.shopify_sync` | `channel_id`, `entity`, `entity_id`, `shopify_gid`, `shopify_handle`, `last_synced`, `payload_hash`, `status` |
 
 **Resolving a `review_queue` row is a three-column write, not a status flip.** `0009` puts three constraints on this table that interlock: `resolved_by` and `resolved_at` must be set or null *together*; anything not `open` must have a resolver; and an `open` row must have none. So `UPDATE ... SET status = 'resolved'` on its own **raises** `ck_review_queue_closed_has_resolver`. Any UI that lets someone close a queue item must expose all three columns — or the table needs the signing trigger below.
@@ -399,7 +405,7 @@ A schema of nothing but views, added at migration `2b9b2f63d30b` to serve NocoDB
 
 **Why a schema rather than `ops.v_*`.** NocoDB connects it as a separate data source with *Allow Data Edit* off, so every report view is read-only in one toggle instead of per-view locking someone must remember for each new view. It also keeps a read-only reporting surface visibly distinct from the real tables in the reviewer's sidebar.
 
-**Why views at all, when NocoDB has filter views.** A NocoDB view is a saved filter over a *single table* — it cannot join. Each of these three is defined by an **absence**: a row with no match in another table. That is an anti-join, so it has to be SQL. The corollary is the rule that splits the Stage 5 review views in two: anything the reviewer must *change* has to be a NocoDB filter view on the real table, because a Postgres view is read-only in practice and he could not do his job through one.
+**Why views at all, when NocoDB has filter views.** A NocoDB view is a saved filter over a *single table* — it cannot join. Each of these three is defined by an **absence**: a row with no match in another table. That is an anti-join, so it has to be SQL. The corollary is the rule that splits the Stage 5 review views in two: anything the reviewer must *change* has to be a NocoDB filter view on the real table, because a Postgres view is read-only in practice and they could not do the job through one.
 
 **Views run with their owner's privileges.** `mos_owner` owns these and can read every underlying table, so `mos_nocodb` needs `SELECT` on the views alone and no grant on the tables beneath them. That is a lever worth remembering: a role can be given a view without the cost basis it was computed from — how the reviewer could see margin without seeing supplier cost, should that ever be wanted.
 
@@ -420,7 +426,10 @@ Not tables. Python modules in `pipeline/` that read and write the above — writ
 | Match | `link.py` | supplier products + catalog | `link.variant_links` (as `proposed`) |
 | Pricing | `price.py` | `cost_basis` + `rules` | `variant_prices` |
 | Sourcing | `price.py` | current offers | `is_preferred` on `link.variant_links` |
-| Shopify sync | `shopify/` | verified rows only | `ops.shopify_sync`, Shopify API |
+| Images | `images.py` | the supplier's image files (S3 or a manifest) | `catalog.images` |
+| Publish intent | `publish.py` | a person's selection; an imported export | `ops.channel_publish` |
+| Runner | `run.py` | — | runs the above in order; `ops.pipeline_runs` |
+| Shopify export | `shopify/export.py` | `review.ready_to_publish` | a product CSV (the API sync, `ops.shopify_sync`, was not built) |
 
 ---
 
@@ -509,7 +518,7 @@ Routing stock updates through human approval either drowns the queue or leaves a
 
 ## Build order
 
-Do not build this in one pass. Slices, each one useful on its own:
+Do not build this in one pass. Slices, each one useful on its own. *Where it stopped: 1–5 built and run on production for one supplier; the CSV half of 8 built and tested, never imported; 6, 7, the API half of 8 and 9 not built.*
 
 1. `raw` + `supplier` schemas, one supplier (Artis), ingest only
 2. `catalog` + `link` with auto 1:1 links — single-source path working end to end
@@ -527,7 +536,7 @@ Do not build this in one pass. Slices, each one useful on its own:
 
 - **Taxonomy is decided and loaded.** Three-level tree (`taxonomy_v4.md`) derived from the ready supplier sheets, with variant axes per node; Level 1 fixed, everything below restructurable. `catalog.taxonomy` holds **256 rows** as of 8 Oct 2026 — 12 departments carrying the frozen `sku_prefix` values, 64 categories, 180 types — so `catalog.next_mosferics_sku()` resolves every department. Loading the tree was an insert, not a migration (`pipeline/seed_taxonomy.py`); the database is now the source of truth for it.
 - **Controlled vocabularies v1 are decided and the files exist.** Colour, Material, Finish and Shape — canonical values plus alias lists, colours carrying hex values — landed in `config/vocabularies/` on 8 Oct 2026. Alias coverage of the Artis, BBP and Beaumont sheets is unchecked. The YAMLs are git-tracked and are the source of truth: do not add a vocabulary table to make them editable in NocoDB, because the second copy would drift. Unmapped supplier values route to `ops.review_queue` with `entity_type = 'vocabulary'`, get aliased once, and are not seen again.
-- **the reviewer can edit `pricing.override_price`.** He sets manual prices directly in NocoDB; a refresh never wipes an override (`final_price = COALESCE(override_price, calculated_price)`). Calculated prices above the materiality threshold, or any change breaching the margin floor, still queue for approval.
+- **The reviewer can edit `pricing.override_price`.** They set manual prices directly in NocoDB; a refresh never wipes an override (`final_price = COALESCE(override_price, calculated_price)`). Calculated prices above the materiality threshold, or any change breaching the margin floor, still queue for approval.
 - **Standard handling time = 1 day.** The internal buffer added to the supplier lead time — goods arrive at the warehouse, are received/checked/picked/packed, and are ready to dispatch the next day. Applies to stocked lines too (supplier leg zero, handling leg still one day). It is an input to the delivery promise engine, which snaps `supplier lead_time_days + 1 day` to the next delivery day; a starting value, tunable once real warehouse turnaround is visible.
 - **Materiality threshold = 5%, margin floor = 15%.** A recalculated price that moves less than 5% is auto-approved and logged; a move of 5% or more queues for review. Any change that would drop a variant's margin below 15% queues regardless of how small the move is, and new products with no prior price always queue. Both are starting values, tunable once real supplier price-list churn is visible.
 - **Mosferics will not sell alcohol.** No alcohol lines now or in the roadmap, so the catalogue carries no licensing or duty concerns and the `age_restricted` compliance claim is not needed for a beverage-sales reason. It still applies to other restricted goods — notably knives (see below). Glassware and barware remain in scope — the exclusion is the drink, not the vessel.

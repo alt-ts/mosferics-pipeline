@@ -73,7 +73,7 @@ ROLES = ("mos_pipeline", "mos_nocodb", "mos_trigger")
 DATA_SCHEMAS = ("supplier", "catalog", "link", "ops", "pricing")
 
 # Tables the reviewer edits through NocoDB. Everything else in the schemas below is
-# readable but not writable by him.
+# readable but not writable by them.
 NOCODB_WRITABLE = (
     "catalog.products",
     "catalog.variants",
@@ -163,7 +163,7 @@ def upgrade() -> None:
     for table in NOCODB_WRITABLE:
         op.execute(f"GRANT INSERT, UPDATE ON {table} TO mos_nocodb")
 
-    # the reviewer's price rights are the override and the approval gate, nothing more.
+    # The reviewer's price rights are the override and the approval gate, nothing more.
     op.execute(
         "GRANT UPDATE (override_price, status, approved_by) "
         "ON pricing.variant_prices TO mos_nocodb"

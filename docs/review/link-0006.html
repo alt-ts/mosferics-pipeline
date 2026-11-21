@@ -506,7 +506,7 @@
       <article class="call record">
         <div class="chip">for the reviewer</div>
         <h3>One tick, no NocoDB configuration</h3>
-        <p>He flips <span class="mono">status</span> to
+        <p>They flip <span class="mono">status</span> to
           <span class="mono">confirmed</span> and
           <span class="mono">link.sign_confirmation()</span> fills in
           <span class="mono">current_user</span> and
@@ -643,7 +643,7 @@
         <p>Every NocoDB confirmation signs as
           <span class="mono">mos_nocodb</span>, so the audit trail says a human
           confirmed it, not which human. That is the right trade for a shop
-          where the reviewer is the reviewer, and it is the one thing to revisit if a
+          where one person does all the reviewing, and it is the one thing to revisit if a
           second reviewer ever joins.</p>
       </article>
       <article class="call record"><div class="chip">resolved at 0007</div><h3>The unreachable CHECK is now reachable again</h3><p>Under 0006 the demote trigger resolved the rejected-and-preferred condition before the constraint could test it, leaving a CHECK that could never fire. The 0007 constraint is stricter than the trigger's demote step in one direction &mdash; the trigger only acts on rows it is invoked for &mdash; so it earns its place rather than standing as documentation.</p></article>

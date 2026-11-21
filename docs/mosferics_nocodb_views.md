@@ -26,8 +26,8 @@ thing — they split cleanly in two:
 | **Report view** | The list is defined by an *absence* — a row with no match in another table | A **Postgres view**, surfaced in NocoDB | No — read-only triage list |
 
 The rule: **if the reviewer has to change the row, it must be a NocoDB filter view on the real
-table.** Postgres views are read-only in practice, so anything he approves, confirms or
-overrides has to sit on a live table or he cannot do his job.
+table.** Postgres views are read-only in practice, so anything they approve, confirm or
+override has to sit on a live table or they cannot do the job.
 
 Mapping the build doc's seven:
 
@@ -229,7 +229,8 @@ Not `= 'verified'`, so a product with an image still awaiting review does not sh
 missing one — it isn't missing, it's pending, and that's the *Needs review* view's job.
 
 **Corrected — `IS DISTINCT FROM 'rejected'`, not `<> 'rejected'`.** `catalog.images.status`
-is **nullable free text with no CHECK and no default** (`0005`), unlike
+was **nullable free text with no CHECK and no default** (`0005`; `0018` has since held it
+to NULL, `verified` or `rejected`, with NULL still meaning unreviewed), unlike
 `product_metadata.status` which is constrained. So `i.status <> 'rejected'` evaluates to
 NULL — not true — for an image whose status has not been set; the `EXISTS` then finds
 nothing and a product that *has* an image is reported as missing one. Since nothing
@@ -271,7 +272,7 @@ JOIN catalog.products p ON p.product_id = v.product_id
 JOIN pricing.variant_prices pr
      ON pr.variant_id = cp.variant_id
     AND pr.channel_id = cp.channel_id
-WHERE cp.publish_status <> 'published'
+WHERE cp.publish_status = 'pending'   -- publish intent (0019; was <> 'published')
   AND p.status = 'active'
   AND pr.status IN ('approved', 'auto_approved')   -- both are live prices
   -- has a preferred source
@@ -310,9 +311,10 @@ image, a preferred link, an approved price and **no metadata rows at all** appea
 this view. The view comment on the live view says so too, so anyone reading
 `\d+ review.ready_to_publish` finds the caveat without having to find this document.
 
-**Nothing guarantees `'verified'` is the literal the image matcher will write.**
-`catalog.images.status` has no CHECK to check it against and the table is empty, so the
-strict `i.status = 'verified'` here is a convention, not an enforced contract. The
+**Nothing guaranteed `'verified'` would be the literal the image matcher writes.** Written
+before the matcher existed: `catalog.images.status` had no CHECK and the table was empty, so
+the strict `i.status = 'verified'` here was a convention, not an enforced contract. `0018`
+added the CHECK, and `pipeline/images.py` writes `verified` or NULL, so it now holds. The
 asymmetry with `missing_images` is deliberate — a publish gate *must* require positive
 verification, so NULL failing is correct in this view and wrong in that one — but if
 `ready_to_publish` comes up unexpectedly empty after Stage 7, this is the first thing to
@@ -345,12 +347,12 @@ corrections above:
 | `ops.review_queue.status` | `open` (default), `resolved`, `dismissed` | `0009` |
 | `ops.review_queue.entity_type` | `product_metadata`, `variant_link`, `variant_price`, `category_map`, `vocabulary`, `image` (`0009`), `supplier_product` (`0015`) | `0009`, `0015` |
 | `ops.channels.type` | `trade_store`, `event_store` | `0009` |
-| **`catalog.images.status`** | **none — nullable free text, no CHECK, no default** | `0005` |
+| `catalog.images.status` | NULL (unreviewed), `verified`, `rejected` | `0018` (unconstrained at `0005`) |
 | **`catalog.products.status`** | **none — free text, defaults to `active`** | `0005` |
 | `ops.review_queue.issue_type` | none — free text | `0009` |
 
-The two bold rows are unconstrained, which is exactly why `missing_images` has to be
-NULL-safe about `images.status`. Treat any literal you write against them as a convention
+The bold row is unconstrained. `images.status` was too until `0018`, and NULL is still its
+unreviewed state, which is exactly why `missing_images` has to be NULL-safe about it. Treat any literal you write against them as a convention
 the database will not enforce for you.
 
 `SELECT DISTINCT status FROM ...` cannot settle these yet — every table is empty until
@@ -423,7 +425,7 @@ Take *Price changes* as the worked example.
 7. **Filters** → *Add filter* → `status` `is equal` `pending_approval`. Add a second
    filter where useful; the nested-group control gives you AND/OR if you need
    `margin_pct < 15 OR status = pending`.
-8. **Sort** → the column that decides what he does first.
+8. **Sort** → the column that decides what they do first.
 9. **Group By** → up to three levels of nesting, which is what the build doc means by
    "grouped by field type".
 
@@ -458,14 +460,23 @@ verified while dimensions are still pending.
 | Show | `supplier_product_id`, `variant_id`, `match_type`, `match_confidence`, `status`, `is_preferred` |
 | Editing | Collaborative |
 
-Confidence-descending is deliberate: the top of the list is near-certain EAN matches he
+**This view fits multi-source matches, not variant groupings, and the pilot only produced
+groupings.** `link.py` writes a grouping proposal as `match_type = 'identical'` with a null
+`match_confidence`, because the SKU is its variant exactly and what is uncertain is the
+group, so for groups the sort and the grouping here do nothing, and two id columns cannot
+show whether five SKUs belong together. Review groups by product instead: add lookup fields
+for the product title and the supplier product's name, or use the `link.py --report` CSV,
+which lists every planned SKU under its product. Confirming a group is still a status flip
+on each of its links; a group half-confirmed is half-agreed.
+
+Confidence-descending is deliberate: the top of the list is near-certain EAN matches they
 can confirm in bulk, and the judgement calls collect at the bottom. Grouping by
 `match_type` separates "same item, two suppliers" (`identical`) from "different sellable
 things under one product" (`equivalent` / `substitute`) — two different questions that are
 slow to answer if they're interleaved.
 
-`is_preferred` is safe for him to tick directly. The sibling-clearing trigger on
-`variant_links` unsets the previous winner in the same statement, so he will not hit the
+`is_preferred` is safe for them to tick directly. The sibling-clearing trigger on
+`variant_links` unsets the previous winner in the same statement, so they will not hit the
 partial unique index — that trigger exists specifically so this view is a one-click job.
 
 **Unmapped vocabulary** — on `ops.review_queue`
@@ -526,9 +537,9 @@ views above are where the work is *done*; this is where you see it exists.
 | Show | `variant_id`, `channel_id`, `calculated_price`, `override_price`, `final_price`, `margin_pct`, `status` |
 | Editing | Collaborative |
 
-This is the one view where the reviewer's Stage 0 permission actually bites: he edits
+This is the one view where the reviewer's Stage 0 permission actually bites: they edit
 `override_price`, and `final_price` is `COALESCE(override_price, calculated_price)`, so a
-price refresh never wipes his number. Make sure `calculated_price` and `override_price` are
+price refresh never wipes their number. Make sure `calculated_price` and `override_price` are
 **both visible and adjacent** — the whole judgement is "what did the rules say, and what
 am I overriding it to". Sorting on margin ascending puts the sub-15% floor breaches at the
 top, which are the ones that queued regardless of size.
@@ -576,15 +587,15 @@ rather than letting someone hit it.
 create or drop tables.
 
 **Be honest with yourself about one limit:** NocoDB has no per-view access control for
-internal collaborators — you cannot grant the reviewer *only* the seven views. He will see each
+internal collaborators — you cannot grant the reviewer *only* the seven views. They will see each
 table's default grid view in the sidebar too, unfiltered. Sharing a view by link does not
-solve it either: shared grid views are read-only, so they cannot carry the work he has to
+solve it either: shared grid views are read-only, so they cannot carry the work they have to
 do. Two mitigations, both worth doing:
 
 - On each table's **default** view, trim the fields down and set it to **Locked**, so it
   stays a deliberate, narrow thing rather than a 60k-row 20-column wall.
 - Order the sidebar so the named views sit above the default, and name them as the build
-  doc does. In practice the reviewer clicks the thing with his job's name on it.
+  doc does. In practice the reviewer clicks the thing with their job's name on it.
 
 The security boundary is the `mos_nocodb` grants and the data-source toggles, not view
 visibility. Treat "sees only the filtered views" as an ergonomic goal rather than an
@@ -666,9 +677,9 @@ almost always the problem, and `psql` tells you faster than the UI does.
 - The four filter views plus `All open review items` and the `link.category_map` grid
   exist, with fields trimmed and grouping set
 - `raw` and `review` have Allow Data Edit off; every source has Allow Schema Edit off
-- the reviewer, as Editor, can change an `override_price` and flip a `product_metadata` status,
+- The reviewer, as Editor, can change an `override_price` and flip a `product_metadata` status,
   and cannot edit anything under `raw`
-- the reviewer can resolve an `ops.review_queue` row — which needs `resolved_by` and
+- The reviewer can resolve an `ops.review_queue` row — which needs `resolved_by` and
   `resolved_at` visible, or a signing trigger, or it raises
 
 The first four are done at `2b9b2f63d30b`. The rest are Parts B and C, in the UI.

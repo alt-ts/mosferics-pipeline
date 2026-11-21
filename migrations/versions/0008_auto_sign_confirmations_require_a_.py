@@ -5,14 +5,14 @@ null was legal, recording a confirmation nobody made.
 
 The CHECK alone would have made the reviewer's confirm a two-field edit — tick the
 status, and also supply a name — which is NocoDB configuration plus an error
-message every time he forgets. So the constraint arrives with a trigger that
+message every time they forget. So the constraint arrives with a trigger that
 signs the row, and the pair behaves the same way as the preferred-link design
 in 0007: the constraint states the fact, the trigger makes the honest action a
 single write, and the constraint is left as a backstop it cannot normally hit.
 
 `current_user` records the ROLE, not the person: a NocoDB edit signs as
 `mos_nocodb`, the pipeline as `mos_pipeline` unless it names itself. For a shop
-where the reviewer is the reviewer that is the distinction that matters — human via
+where one person does all the reviewing, that is the distinction that matters — human via
 NocoDB versus machine — and it needs no per-user database roles. If per-person
 attribution is ever wanted, the place to add it is NocoDB writing the logged-in
 user into `confirmed_by`, which this trigger will then leave alone.

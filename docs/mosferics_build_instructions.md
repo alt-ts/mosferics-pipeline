@@ -4,13 +4,15 @@ Companion to `mosferics_data_model_v3.md`. That document defines *what* the syst
 
 Stages 0 and 9 are paper exercises. Everything else is build. Stage 0 is not optional — several stages block on it.
 
+> **Where this stopped (November 2026).** Mosferics closed before the shop launched. Stages 0–6 are done, and Stage 7 ran on the production database as far as approved prices for one supplier (Artis). The rest of Stage 7 (image matching, publish intent, the Shopify export) and a runner, Docker and CI were then built and tested on a scratch database and in Docker, never on production; nothing was imported into a Shopify store. Stages 8–10 and the delivery promise engine are designed here and were not built. Each stage's status line says which is which.
+
 ---
 
 ## Stage 0 — Decisions to lock before provisioning
 
 | Decision | Needed by | Status |
 |---|---|---|
-| VM provider, region, size | Stage 1 | Open |
+| VM provider, region, size | Stage 1 | **Done — DigitalOcean, London, 4 GB** |
 | SKU check digit | Stage 4 | **Done — mod-11, `MOS-<DEPT>-<NNNNNNN>-<C>`** |
 | Taxonomy tree v1 | Stage 6 | **Done — `taxonomy_v4.md` loaded 8 Oct 2026**, 256 rows in `catalog.taxonomy` |
 | Controlled vocabularies + alias lists | Stage 6 | **Landed 8 Oct 2026** — four YAMLs in `config/vocabularies/`; alias coverage of Artis/BBP/Beaumont unchecked |
@@ -18,7 +20,7 @@ Stages 0 and 9 are paper exercises. Everything else is build. Stage 0 is not opt
 | Standard handling time (days) | Stage 8 | **Done — 1 day** |
 | Delivery promise engine | Post-pilot | Config decided + seeded at Stage 4; logic deferred — see spec below |
 | Stocked SKU list | Deferred — see note | **Deferred** |
-| the reviewer's edit permissions | Stage 5 | **Done — the reviewer edits `pricing.override_price`** |
+| The reviewer's edit permissions | Stage 5 | **Done — the reviewer edits `pricing.override_price`** |
 | Role grants applied to live | Stage 5 | **Done — migration 0013, all four roles** |
 | Alcohol in range | — | **Done — Mosferics will not sell alcohol** |
 | Compliance evidence policy after dropping DoC | Stage 6 | **Done — supplier data sheets are the evidence** |
@@ -44,7 +46,7 @@ ls config/vocabularies/                                             # must list 
 
 Loading the tree is an **insert, not a migration** — it is data in a table the schema already defines, so it does not go through Alembic. The loader is `python -m pipeline.seed_taxonomy` (`--dry-run` prints the rows), reading `config/taxonomy/taxonomy_v4.json`. It refuses a table that already has rows: once loaded, the database is the source of truth for the tree and the JSON is only what a clean rebuild loads — restructure levels 2–3 in place, not by editing the seed. The vocabulary files are git-tracked YAML and are the source of truth; do not add a vocabulary table to make them editable in NocoDB, or the two copies will drift.
 
-**the reviewer's edit permissions:** the reviewer can edit `pricing.override_price` directly in NocoDB. His grant on `pricing.variant_prices` allows setting the override column; a price refresh never overwrites it (`final_price = COALESCE(override_price, calculated_price)`). Calculated changes above the materiality threshold, or any change breaching the margin floor, still queue for approval regardless.
+**The reviewer's edit permissions:** The reviewer can edit `pricing.override_price` directly in NocoDB. Their grant on `pricing.variant_prices` allows setting the override column; a price refresh never overwrites it (`final_price = COALESCE(override_price, calculated_price)`). Calculated changes above the materiality threshold, or any change breaching the margin floor, still queue for approval regardless.
 
 **Alcohol:** Mosferics will not sell alcohol, now or on the roadmap. No licensing or duty handling is needed, and the `age_restricted` compliance claim is not required for beverage sales (it may still apply to other restricted goods). Glassware and barware stay in scope — the exclusion is the drink, not the vessel.
 
@@ -508,13 +510,16 @@ them in this order:
 | `0014` | `pricing.rules.supplier_id` — supplier-within-category rules; cascade and precedence recorded as column comments |
 | `0015` | `ops.review_queue.entity_type` gains `supplier_product`, for faults in what a supplier sent about one SKU |
 | `0016` | `catalog.variant_options` — one row per variant per axis: selector label, canonical value + unit, line-mark qualifier |
+| `0017` | `pricing.sign_price_decision()` signs approvals and rejections by role; `mos_pipeline` may read `review`; the capacity → `custom.volume` metafield mapping |
+| `0018` | `catalog.images.variant_id` (composite FK to the variant's own product), unique `s3_key`, and a CHECK on image `status` |
+| `0019` | `review.ready_to_publish` requires publish intent (`pending`), not merely "not published" |
 
 `stock` is not in this list — it is still deferred, and when it lands it must be added to
 `DATA_SCHEMAS` in `0013` and granted in the same migration that creates it.
 
 **When building `link.py`, confirm the auto-created links.** Migration 0007 requires `is_preferred` to imply `status = 'confirmed'`, so the auto-created 1:1 link every single-source item gets must be written as `status = 'confirmed'`. It does not have to be signed by hand: migration 0008 added a trigger that fills `confirmed_by` and `confirmed_at` whenever a row is confirmed without a confirmer, so the pipeline can either write `confirmed_by = 'pipeline'` explicitly (which is preserved) or leave both null and sign as `mos_pipeline`. The one remaining trap is writing `confirmed_by` without `confirmed_at` — that fails the pairing constraint, because the signing trigger only fires when `confirmed_by` is null. Leaving `status` at its `proposed` default is the other trap, and the quiet one: it silently drops `is_preferred` on every single-source variant. See the `is_preferred` section of `mosferics_data_model_v3.md` for the full table.
 
-**NocoDB needs no configuration for this.** the reviewer confirms a link by flipping `status` to `confirmed`; the trigger signs it as `mos_nocodb`. Attribution is per role, not per person — if per-person attribution is ever wanted, have NocoDB write the logged-in user into `confirmed_by` and the trigger will leave it alone.
+**NocoDB needs no configuration for this.** The reviewer confirms a link by flipping `status` to `confirmed`; the trigger signs it as `mos_nocodb`. Attribution is per role, not per person — if per-person attribution is ever wanted, have NocoDB write the logged-in user into `confirmed_by` and the trigger will leave it alone.
 
 **When building `ops.review_queue`, add the orphaned-preferred-link check.** Migration 0007 made `link.is_preferred` imply `status = 'confirmed'`, and the trigger demotes silently rather than raising — so rejecting or un-confirming the preferred source leaves the variant with no preferred link and nothing says so. The queue must surface **any variant with at least one confirmed link but zero preferred links** as an open item (`entity_type = 'variant_link'`). Sourcing re-picks a winner on its next run, so the item normally clears itself; one that survives across runs means Sourcing found no viable candidate, which is a human problem and otherwise shows up only as a line that quietly cannot be sold. See the `is_preferred` section of `mosferics_data_model_v3.md`.
 
@@ -586,7 +591,9 @@ Every migration must have a working `downgrade()`. Test each one up, down, and u
 >
 > Six schemas are covered — `raw`, `supplier`, `catalog`, `link`, `ops`, `pricing`. **When `stock` lands, add it to `DATA_SCHEMAS` in `0013`** and grant in the same migration that creates it; a new schema does not inherit anything, because default privileges are per-schema.
 
-**Done when:** `alembic upgrade head` builds the whole database from empty on a clean instance — all six schemas plus `review`, ending at `0016` — `downgrade base` tears it down without error, and the Stage 2 role grants are applied so `mos_pipeline` can actually read/write the tables.
+**Status: done.** Production stopped at `0017`; `0018` and `0019` were tested up/down/up on scratch and are built from empty by CI and Docker on every run.
+
+**Done when:** `alembic upgrade head` builds the whole database from empty on a clean instance — all six schemas plus `review`, ending at `0019` — `downgrade base` tears it down without error, and the Stage 2 role grants are applied so `mos_pipeline` can actually read/write the tables.
 
 ---
 
@@ -652,7 +659,7 @@ Build these views before the reviewer ever sees it, because an unfiltered 60k-ro
 with no match in another table — which is an anti-join and has to be SQL; those are the
 `review` schema, built in migration `2b9b2f63d30b` (Stage 4, step 8). The other four are
 filters in the UI. The dividing rule: **anything the reviewer has to change must be a NocoDB
-filter view on the real table**, because a Postgres view is read-only in practice and he
+filter view on the real table**, because a Postgres view is read-only in practice and they
 could not approve, confirm or override through one.
 
 *Unmapped vocabulary* is the one that looks like it should be a Postgres view and isn't.
@@ -676,7 +683,7 @@ and for every view added later.
 
 **Done when:** the reviewer can reach NocoDB over Tailscale, can edit a description and flip a review flag, and cannot touch `raw` or run DDL.
 
-**Not** "sees only the filtered views" — that is not achievable and should not be written as an exit criterion. NocoDB has no per-view access control for internal collaborators, so the reviewer also sees each table's default grid in the sidebar; sharing a view by link does not help, because shared views are read-only and cannot carry the work he has to do. Mitigate ergonomically — trim and **Lock** each table's default view, order the named views above it — and treat the real boundary as the `mos_nocodb` grants plus the per-data-source toggles. See Part C of `mosferics_nocodb_views.md`.
+**Not** "sees only the filtered views" — that is not achievable and should not be written as an exit criterion. NocoDB has no per-view access control for internal collaborators, so the reviewer also sees each table's default grid in the sidebar; sharing a view by link does not help, because shared views are read-only and cannot carry the work they have to do. Mitigate ergonomically — trim and **Lock** each table's default view, order the named views above it — and treat the real boundary as the `mos_nocodb` grants plus the per-data-source toggles. See Part C of `mosferics_nocodb_views.md`.
 
 ---
 
@@ -733,17 +740,15 @@ Glassware colour needs an early decision: "clear", "crystal" and "plain" are the
 
 ## Stage 7 — Artis end to end
 
-**Status (21 Nov 2026): steps 1–8 done on live; every Artis price awaits approval.** The August files are normalised: 3,529 `supplier_products`, 3,529 current `supplier_offers`. `link.category_map` is loaded (129 strings; 21 left `manual`, 416 SKUs still unmapped). `link.py` has run three times on live, each in one transaction: **2,192 products, 2,957 variants with SKUs, 2,957 variant links, 2,519 `variant_options` rows, 19 brands**. Every link is confirmed: 1,803 single-SKU 1:1 links by `pipeline`, and the 1,154 grouping links by hand in NocoDB (`mos_nocodb`, 21 Nov). `price.py` ran on 21 Nov at the interim global rule (30% margin): **1,154 preferred sources set, 2,957 `cost_basis` rows, 2,957 prices, all `pending_approval`** because a new price always waits. Gross margins are 29.925–30.070% (penny rounding) and `pricing.live_margins` agrees with the snapshot on every row. A dry run of either module now plans nothing, so both are safe to repeat. The SKU bodies have single gaps; that is the mod-11 allocator skipping bodies whose check digit would be 10, not lost SKUs.
+**Status: steps 1–8 and the review (10) ran on production for Artis; steps 9 and 11 were built and tested on scratch and in Docker only.**
 
-How it got there. The first `link.py` dry run (20 Nov) led to a name-against-column capacity check (`variant_axes.capacity.name_check`, 10%), Clear for a colourless member of a coloured group of one see-through material (`absent_in_group`), and litre labels from 1 litre up. The colour vocabulary grew three ways: two Artis range names in `ignore_phrases` ("Modern Rustic Natural", "Natural Stone"); **Stone** as its own colour (`#A89F91`), because Modern Rustic sells it beside Grey and as an alias of grey ~38 SKUs could not be told apart; and four **two-tone colours** (Black & White, Grey & White, Brown & Black, Beige & Grey), each matched whole, so the 2in1 range (23 SKUs, 5 products) could group. `normalise.py` re-ran after each change; only colour specs moved. The review items a human settled are recorded per SKU in `artis.yaml`, each with who, when and why: `safety.contradictions.keep` (7 SKUs keep `handwash_only`, still `pending_review`), `name_check.accept` (9 SKUs where the brim column is right), and `capacity.line_mark.corrections` (3 marks the parser could not read, written out in its notation). **77-00-093 Summit Hi-Ball is left out on purpose**: its brim column holds the name's oz figure, and the name check keeps it out until Artis corrects it.
+*On production, November 2026.* The August files are normalised: 3,529 `supplier_products`, 3,529 current `supplier_offers`. `link.category_map` is loaded (129 strings; 21 left `manual`, covering 416 SKUs that stay unmapped). `link.py` has run three times, each in one transaction: **2,192 products, 2,957 variants with SKUs, 2,957 variant links, 2,519 `variant_options` rows, 19 brands**. Every link is confirmed: 1,803 single-SKU 1:1 links by `pipeline`, and the 1,154 grouping links by a human in NocoDB. `price.py` ran at the interim global rule (a 30% margin): every variant has a preferred source, a `cost_basis` row and a price, and `pricing.live_margins` agrees with the stored snapshot on every row. **2,938 prices are approved; 19 are held at `pending_approval`** because the supplier file gives them an identical, implausibly high unit cost, which needed Artis to confirm. Of the 257 review items raised, 99 were settled and closed; 158 stay open (155 grouping conflicts, 2 brim-capacity conflicts, and 77-00-093 below). A dry run of any module plans nothing, so each is safe to repeat. The SKU bodies have single gaps: the mod-11 allocator skips any body whose check digit would be 10.
 
-Next:
-- **Approve the 2,957 prices in NocoDB** (Price changes view), category by category so it stays a review. Nothing reaches the Shopify export until a price is `approved` or `auto_approved`.
-- **Hold back 22 SKUs costed at exactly [supplier price removed] a piece** (list [supplier price removed]): Purity Classic Gold, Chiara, Finest Loom and others, from side plates to platters. Almost certainly a placeholder in the Artis file; ask Artis before anyone approves them.
-- **Write the real pricing rules** as `pricing.rules` rows (see Running alongside the build). Re-running `price.py` reprices; an unapproved price simply waits again.
-- **Close the review items already fixed.** 99 of the 257 open items are settled (53 colour, 23 2in1 grouping, 9 capacity, 7 safety, 3 line mark, 4 pack size); nothing closes an item on its own. 158 are still real: 155 `grouping_conflict` (including the Modern Rustic Ceramica Plate family, whose 31-51-710…714 name no colour), 2 `brim_capacity_conflict`, and 77-00-093.
-- **17 SKUs placed before the colour changes keep stale options** (the Nara pieces, the mill set, the cake stand): no colour option, and the Nara groups are titled "Nara & Bowl". `link.py` never revisits a placed SKU; refreshing unpublished products is a decision still to make.
-- Steps 9–11: image matching, NocoDB review, the Shopify CSV export.
+*How it got there.* The first `link.py` dry run led to a name-against-column capacity check (`variant_axes.capacity.name_check`, 10%), Clear for a colourless member of a coloured group of one see-through material (`absent_in_group`), and litre labels from 1 litre up. The colour vocabulary grew three ways: two Artis range names in `ignore_phrases` ("Modern Rustic Natural", "Natural Stone"); **Stone** as its own colour (`#A89F91`), because Modern Rustic sells it beside Grey and as an alias of grey about 38 SKUs could not be told apart; and four **two-tone colours** (Black & White, Grey & White, Brown & Black, Beige & Grey), each matched whole, so the 2in1 range (23 SKUs, 5 products) could group. `normalise.py` re-ran after each change, and a diff against production before each write confirmed only colour specs moved. The review decisions a human made are recorded per SKU in `artis.yaml`, each with who, when and why: `safety.contradictions.keep` (7 SKUs keep `handwash_only`, still `pending_review`), `name_check.accept` (9 SKUs where the brim column is right), `offer.checks...accept` (4 pack sizes where the price file wins) and `capacity.line_mark.corrections` (3 marks the parser could not read). **77-00-093 Summit Hi-Ball is left out on purpose**: its brim column holds the name's oz figure, and the name check keeps it out until the supplier corrects it.
+
+*Built after the pilot, scratch and Docker only.* Image matching (`pipeline/images.py`, migration `0018`): the pilot's image bucket was never connected, so the Artis `images` config is a labelled placeholder and it has not run on real files. Publish intent (`pipeline/publish.py`, migration `0019`). The Shopify CSV export (`pipeline/shopify/export.py`), never imported into a store. The runner (`pipeline/run.py`). All four run end to end in the Docker demo on a synthetic supplier (`config/suppliers/demo.yaml`).
+
+*Left open when the project stopped.* The real per-supplier and per-category pricing rules (Stage 9). 17 SKUs placed before the colour changes keep stale options (no colour option; three Nara groups titled "Nara & Bowl"), because `link.py` never revisits a placed SKU. Supplier barcodes are never promoted to `catalog.variants.ean`, so the export's barcode column is empty. Safety and material claims are not yet copied from `supplier_products.specs` to `catalog.product_metadata`, so the export's "nothing pending review" gate has nothing to block (no unreviewed claim reaches Shopify, because the CSV does not carry those fields).
 
 There is no staging table: `extract.py` holds its rows in memory for `normalise.py`, and canonical values wait in `supplier_products.specs` until `link.py` has a product to attach them to.
 
@@ -786,11 +791,13 @@ Capacity is **both an option and a metafield**: the option string carries the se
 
 **AI cost boundary:** nothing in this pilot invokes the AI enrichment engine — it's deferred behind the review gate (Stage 10). When it does arrive, it calls the Anthropic API directly from Python and needs its **own API key and budget**, separate from and unaffected by the Claude Pro subscription you authenticate Claude Code with (Stage 3).
 
-**Done when:** Artis products exist in Postgres with correct variants, a CSV imports cleanly to Shopify, and capacity filtering works on the storefront.
+**Done when:** Artis products exist in Postgres with correct variants, a CSV imports cleanly to Shopify, and capacity filtering works on the storefront. *The first clause is met on production; the other two were never tested, since no store was set up before the business closed.*
 
 ---
 
 ## Stage 8 — BBP, two-axis
+
+**Status: designed, not built.** No BBP config or files were written. Two-axis grouping (capacity and colour) works in `link.py` and is exercised by the Docker demo's synthetic plates.
 
 Harder than Artis by a meaningful margin. Colour and capacity together.
 
@@ -805,6 +812,8 @@ BBP likely buries colour in the product name. Artis turned out to do the same �
 ---
 
 ## Delivery promise engine — design spec
+
+**Status: designed, not built.** Its configuration is seeded in `ops.delivery_config`; no code reads it.
 
 Built after the pilot proves out (post Stage 7/8, alongside Shopify storefront work — it needs products, offers and stock signals that do not exist earlier, and it surfaces on the storefront). **Not built during the structural stages.** All parameters are already decided and seeded into `ops.delivery_config` at Stage 4; what follows is the process to build the logic that reads them. Mostly design decisions, a little code at the end — the hard parts are steps 1, 4 and 6.
 
@@ -840,6 +849,8 @@ Sanity check: stock in hand, ordered Mon 11:00 → ready Tue → Tue is a delive
 
 ## Stage 9 — Remaining work, not code
 
+**Status: mostly not done.** The metafield map has its first row (capacity, `0017`); the rest was never started.
+
 Running alongside the build:
 
 | Task | Notes |
@@ -855,9 +866,11 @@ Running alongside the build:
 
 ## Stage 10 — Later
 
+**Status: not built**, except preferred source and cost basis, which `price.py` does (Stage 7, step 8).
+
 - Shopify Admin API replacing CSV
 - Availability sync from supplier stock feeds, on its own daily schedule, ungated
-- Preferred source and cost basis
+- ~~Preferred source and cost basis~~ — built in `price.py`
 - AI enrichment behind the review gate, one supplier at a time
 - Basket optimisation as a separate tool
 - Tiered pricing (Standard/Bronze/Silver/Gold) — additive `pricing.tiers` + `tier_prices` layer, see the data model's forward-design note; build when the commercial model firms up

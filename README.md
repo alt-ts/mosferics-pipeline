@@ -259,5 +259,5 @@ tests/           pytest, unit and database tests
 
 Built by Tom Storey with [Claude Code](https://claude.com/claude-code). The
 design documents, the business decisions and the review of each migration
-against the live schema were his; much of the code was written with Claude, as
+against the live schema were Tom's; much of the code was written with Claude, as
 the `Co-Authored-By` trailers on the commits show.

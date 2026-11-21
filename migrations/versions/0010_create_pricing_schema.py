@@ -152,7 +152,7 @@ def upgrade() -> None:
         sa.Column("variant_id", sa.BigInteger, nullable=False),
         sa.Column("channel_id", sa.Integer, nullable=False),
         sa.Column("calculated_price", sa.Numeric(12, 2)),
-        # the reviewer's column. A refresh writes calculated_price and never touches
+        # The reviewer's column. A refresh writes calculated_price and never touches
         # this one, which is the whole reason they are separate.
         sa.Column("override_price", sa.Numeric(12, 2)),
         # Generated, not written: COALESCE(override_price, calculated_price) is
