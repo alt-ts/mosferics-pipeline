@@ -1,0 +1,68 @@
+# Run the pipeline locally against its own PostgreSQL 16.
+#
+#   docker compose up -d db                      # start the database
+#   docker compose run --rm pipeline             # run the test suite
+#   docker compose run --rm pipeline bash docker/demo.sh   # the end-to-end demo
+#   docker compose --profile review up -d nocodb # optional: the review UI on :8080
+#   docker compose down -v                       # stop and delete the data
+#
+# The passwords below are development defaults for a database that only ever
+# holds the synthetic demo data. Override any of them in a .env file beside
+# this one; never reuse them anywhere real.
+
+x-passwords: &passwords
+  MOS_OWNER_PASSWORD: ${MOS_OWNER_PASSWORD:-dev-owner}
+  MOS_PIPELINE_PASSWORD: ${MOS_PIPELINE_PASSWORD:-dev-pipeline}
+  MOS_NOCODB_PASSWORD: ${MOS_NOCODB_PASSWORD:-dev-nocodb}
+  MOS_TRIGGER_PASSWORD: ${MOS_TRIGGER_PASSWORD:-dev-trigger}
+
+services:
+  db:
+    image: postgres:16
+    environment:
+      <<: *passwords
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev-postgres}
+      MOS_DATABASES: mosferics mosferics_test
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Runs once, on a fresh volume: the four roles and both databases.
+      - ./docker/postgres/init-roles.sh:/docker-entrypoint-initdb.d/10-init-roles.sh:ro
+    ports:
+      # Localhost only. The pipeline reaches the database over the compose
+      # network; this port is for a local psql. Set MOS_DB_PORT if 5433 is taken.
+      - "127.0.0.1:${MOS_DB_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  pipeline:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://mos_owner:${MOS_OWNER_PASSWORD:-dev-owner}@db/mosferics
+      PIPELINE_DATABASE_URL: postgresql+psycopg2://mos_pipeline:${MOS_PIPELINE_PASSWORD:-dev-pipeline}@db/mosferics
+      TEST_DATABASE_URL: postgresql+psycopg2://mos_pipeline:${MOS_PIPELINE_PASSWORD:-dev-pipeline}@db/mosferics_test
+      # The test database is migrated by docker/test.sh before the suite runs.
+      TEST_OWNER_URL: postgresql+psycopg2://mos_owner:${MOS_OWNER_PASSWORD:-dev-owner}@db/mosferics_test
+    volumes:
+      - ./out:/app/out
+    command: ["bash", "docker/test.sh"]
+
+  nocodb:
+    image: nocodb/nocodb:latest
+    profiles: ["review"]
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - nocodb:/usr/app/data
+
+volumes:
+  pgdata:
+  nocodb:

@@ -1,0 +1,8 @@
+supplier_category_raw,product_count,sample_names,suggested_category_id,suggested_path,confidence,note,decision,override_path
+Drinkware > Stemware > Wine,4,Aurora Wine 25cl [8.75oz]; Aurora Wine 35cl [12.25oz]; Aurora Wine 35cl [12.25oz] (CE@175ml),0,,,synthetic demo data,map,glassware-drinkware/wine-glasses
+Drinkware > Tumbler > Hi-Ball,4,Harbour Hi-Ball 30cl [10.5oz]; Harbour Hi-Ball 40cl [14oz]; Harbour Hi-Ball 50cl [17.5oz],0,,,synthetic demo data,map,glassware-drinkware/tumblers-hi-balls/hi-ball-tall-tumblers
+Drinkware > Jug > -,3,Ripple Jug 100cl [35oz]; Ripple Carafe 50cl [17.5oz]; Ripple Carafe 50cl [17.5oz],0,,,synthetic demo data,map,glassware-drinkware/jugs-carafes-decanters
+Tableware > Plate > Coupe,3,Lumen Coupe Plate White 21cm; Lumen Coupe Plate White 27cm; Lumen Coupe Plate Blue 27cm,0,,,synthetic demo data,map,tableware-crockery/plates
+Tableware > Bowl > Deep,4,Lumen Deep Bowl White 16cm; Lumen Deep Bowl Grey 16cm; Tidal Bowl Grey/White 16cm,0,,,synthetic demo data,map,tableware-crockery/bowls
+Bar > Tools > -,2,Halden Bar Spoon 30cm; Halden Hawthorne Strainer,0,,,synthetic demo data,map,bar-cocktail/ice-garnish-bar-tools
+Furniture > Stool > -,1,Halden Bar Stool,0,,,synthetic demo data,manual,
