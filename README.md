@@ -1,5 +1,7 @@
 # Mosferics catalogue pipeline
 
+[![CI](https://github.com/alt-ts/mosferics-pipeline/actions/workflows/ci.yml/badge.svg)](https://github.com/alt-ts/mosferics-pipeline/actions/workflows/ci.yml)
+
 A PostgreSQL and Python pipeline that turns wholesale suppliers' price and product
 files into a Shopify catalogue. It was built for Mosferics, a UK supplier of
 glassware, tableware and bar equipment to the hospitality trade. The business
@@ -166,6 +168,7 @@ The quickest way to see it work. Docker Compose starts PostgreSQL 16, creates
 the four roles and two databases on first start, and builds the pipeline image.
 
 ```bash
+git clone https://github.com/alt-ts/mosferics-pipeline.git && cd mosferics-pipeline
 docker compose up -d db
 docker compose run --rm pipeline                        # the test suite: 325 tests
 docker compose run --rm pipeline bash docker/demo.sh    # the pipeline end to end
