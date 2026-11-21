@@ -65,7 +65,10 @@ AUTO = "auto_approved"
 ISSUE_NO_SOURCE = "no_preferred_source"
 ISSUE_UNPRICEABLE = "unpriceable"
 HUNDRED = Decimal(100)
-COST_STEP = Decimal("0.000001")  # cost per base unit: stable across re-runs, far finer than a penny
+# Cost per base unit, at the scale pricing.cost_basis stores (numeric(12,4)). A finer
+# figure would never equal the stored one, so every run would rewrite it, and the
+# variant cost here would drift from the one pricing.live_margins computes.
+COST_STEP = Decimal("0.0001")
 
 # The order a rule's scope wins in. A lower rank beats a higher one.
 RANK_PRODUCT, RANK_SUPPLIER_CATEGORY, RANK_CATEGORY, RANK_SUPPLIER, RANK_GLOBAL = range(5)

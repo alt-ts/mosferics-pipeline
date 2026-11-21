@@ -276,6 +276,12 @@ def test_a_proposed_group_is_not_priced(conn):
                         {"v": v}).scalar_one() == 0
 
 
+def test_a_cost_that_does_not_divide_evenly_is_not_rewritten_on_every_run(conn):
+    variant(conn, "01", cost="10.00", pack="6")       # 1.666... each
+    run(conn, SETTINGS, dry_run=False)
+    assert run(conn, SETTINGS, dry_run=False)["written"]["cost_basis"] == 0
+
+
 def test_a_dry_run_writes_nothing_and_a_rerun_is_a_no_op(conn):
     v, _ = variant(conn, "01", cost="42.00")
     assert run(conn, SETTINGS, dry_run=True)["plan"]["prices_written"] == 1
