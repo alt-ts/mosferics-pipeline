@@ -606,10 +606,13 @@ def _write_variant(conn: sa.Connection, product_id: int, node: Node, m: Member,
 
 
 def _write_conflicts(conn: sa.Connection, conflicts: list[Conflict]) -> int:
-    """One open item per member, not raised again while the same reason stands."""
+    """One open item per member, not raised again while it is open for the same reason.
+
+    A resolved or dismissed item whose conflict is still there is raised again.
+    """
     existing = {(q.entity_id, q.issue_type, q.notes) for q in conn.execute(sa.text(
         "SELECT entity_id, issue_type, notes FROM ops.review_queue WHERE entity_type = 'supplier_product' "
-        "AND issue_type IN (:g, :c)"), {"g": ISSUE_GROUPING_CONFLICT, "c": ISSUE_CAPACITY_NAME_MISMATCH})}
+        "AND status = 'open' AND issue_type IN (:g, :c)"), {"g": ISSUE_GROUPING_CONFLICT, "c": ISSUE_CAPACITY_NAME_MISMATCH})}
     inserted = 0
     for c in conflicts:
         skus = ", ".join(m.sku for m in c.members)

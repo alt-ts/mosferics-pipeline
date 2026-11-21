@@ -278,14 +278,18 @@ def _write_offer(conn: sa.Connection, product_id: int, row: StagedRow, valid_fro
 
 
 def _raise_issues(conn: sa.Connection, issues: list[tuple[int, str, Issue]]) -> tuple[int, int]:
-    """Queue what has not been raised before. Returns (inserted, already raised).
+    """Queue what is not already open. Returns (inserted, already open).
 
-    A row counts as already raised whatever its status, so a dismissed item stays
-    dismissed. Matching on the start of `notes` survives someone adding to the
-    note, while a changed supplier value words differently and so is a new item.
+    Only an open item holds a problem back. One resolved or dismissed whose
+    problem is still in the file is raised again: closing an item says it was
+    dealt with, so a problem that is back is news. To stop a value being raised
+    for good, record the decision in the supplier YAML. Matching on the start of
+    `notes` survives someone adding to the note, while a changed supplier value
+    words differently and so is a new item.
     """
     existing: dict[tuple[str, int, str], list[str]] = {}
-    for q in conn.execute(sa.text("SELECT entity_type, entity_id, issue_type, notes FROM ops.review_queue")):
+    for q in conn.execute(sa.text(
+            "SELECT entity_type, entity_id, issue_type, notes FROM ops.review_queue WHERE status = 'open'")):
         existing.setdefault((q.entity_type, q.entity_id, q.issue_type), []).append(q.notes or "")
 
     inserted = already = 0

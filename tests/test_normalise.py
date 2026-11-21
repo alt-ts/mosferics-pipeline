@@ -328,15 +328,31 @@ def test_one_unmapped_value_on_many_products_is_one_queue_item(conn):
     assert item.entity_id == product(conn, "04-21-301").supplier_product_id
 
 
-def test_a_dismissed_item_is_not_raised_again_even_after_someone_adds_a_note(conn):
+def mine(conn):
+    """This test's items only: scratch keeps the queue rows earlier runs left."""
+    return [q for q in queue(conn) if q.issue_type == "safety_contradiction" and q.notes.startswith("04-21-301: a and b")]
+
+
+def test_an_open_item_is_not_raised_again_even_after_someone_adds_a_note(conn):
     row = staged(issues=(Issue("safety_contradiction", "safety", "a and b"),))
     write(conn, row)
-    queue_id = queue(conn)[0].queue_id
-    conn.execute(sa.text(
-        "UPDATE ops.review_queue SET status = 'dismissed', resolved_by = 'reviewer', resolved_at = now(), "
-        "notes = notes || ' Checked the data sheet.' WHERE queue_id = :q"), {"q": queue_id})
+    (item,) = mine(conn)
+    conn.execute(sa.text("UPDATE ops.review_queue SET notes = notes || ' Asked Artis.' WHERE queue_id = :q"),
+                 {"q": item.queue_id})
     assert write(conn, row).queue_inserted == 0
-    assert queue(conn)[0].queue_id == queue_id
+    assert [q.queue_id for q in mine(conn)] == [item.queue_id]
+
+
+@pytest.mark.parametrize("closed", ["resolved", "dismissed"])
+def test_a_closed_item_whose_problem_is_still_there_is_raised_again(conn, closed):
+    row = staged(issues=(Issue("safety_contradiction", "safety", "a and b"),))
+    write(conn, row)
+    (item,) = mine(conn)
+    conn.execute(sa.text(
+        "UPDATE ops.review_queue SET status = :s, resolved_by = 'reviewer', resolved_at = now() WHERE queue_id = :q"),
+        {"s": closed, "q": item.queue_id})
+    assert write(conn, row).queue_inserted == 1
+    assert sorted((q.queue_id == item.queue_id, q.status) for q in mine(conn)) == [(False, "open"), (True, closed)]
 
 
 def test_a_changed_value_is_a_new_item(conn):

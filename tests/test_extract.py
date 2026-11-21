@@ -152,6 +152,28 @@ def test_a_pack_size_disagreement_goes_to_review_and_the_price_file_wins():
     assert issue_codes(row) == ["pack_size_agrees_with_product_file"]
 
 
+def test_an_accepted_pack_size_disagreement_is_not_raised():
+    sku = "12-12-305"  # accepted in artis.yaml at price 6, product 12
+    row = stage_one(price=price_row(sku, **{"Pack Size": "6", "Your Pack Price": "9.00"}),
+                    product=product_row(sku, **{"Artis Sales Box Qty (ea)": "12"}))
+    assert row.offer.base_units_per_pack == Decimal("6") and row.issues == ()
+
+
+def test_an_accepted_sku_that_disagrees_differently_is_raised_again():
+    sku = "12-12-305"
+    row = stage_one(price=price_row(sku, **{"Pack Size": "6", "Your Pack Price": "9.00"}),
+                    product=product_row(sku, **{"Artis Sales Box Qty (ea)": "24"}))
+    assert issue_codes(row) == ["pack_size_agrees_with_product_file"]
+
+
+def test_a_pack_size_acceptance_needs_both_values_and_a_decision():
+    config = copy.deepcopy(ARTIS)
+    check = next(c for c in config["offer"]["checks"] if c["name"] == "pack_size_agrees_with_product_file")
+    check["accept"] = {"12-12-305": {"values": [6], "decided": "a human"}}
+    with pytest.raises(ExtractError, match="needs values"):
+        Stager(config)
+
+
 def test_a_blank_sales_box_quantity_is_not_a_disagreement():
     assert stage_one().issues == ()
 

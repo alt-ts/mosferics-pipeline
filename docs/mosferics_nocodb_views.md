@@ -498,6 +498,14 @@ ERROR:  new row for relation "review_queue" violates check constraint
 or null together. So resolving a row is a three-column edit, and a view that hides two of
 them gives the reviewer a constraint error with no way to satisfy it.
 
+**Close an item only once the fix is in.** The pipeline holds back only what is already
+open: an item that is `resolved` or `dismissed` while its problem is still in the data is
+raised again on the next run (`normalise.py`, `link.py` and `price.py` alike). Closing says
+"this was dealt with", so a problem that is back is news. To stop something being raised
+for good, the decision goes in the supplier YAML, the way `artis.yaml` records its accepted
+capacities, pack sizes, line-mark corrections and safety choices; dismissing the row alone
+lasts only until the next run.
+
 This is the opposite failure to `product_metadata`, which has **no** such pairing
 constraint: flipping that to `verified` succeeds and silently leaves the audit columns
 null. One table refuses the incomplete edit, the other accepts it quietly. Both want the

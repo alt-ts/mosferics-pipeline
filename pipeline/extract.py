@@ -230,7 +230,15 @@ class Stager:
             elif "compare" in check:
                 if check["on_fail"] != "review" or check.get("on_blank") != "ignore":
                     raise ExtractError(f"offer.checks.{check['name']}: unsupported on_fail or on_blank")
-                self.compare_checks.append(check)
+                # SKUs a human has looked at: the exact pair of values accepted.
+                # Different values on a later file are a new disagreement.
+                accepted: dict[str, tuple[Decimal, Decimal]] = {}
+                for sku, entry in (check.get("accept") or {}).items():
+                    values = (entry or {}).get("values")
+                    if not entry.get("decided") or not isinstance(values, list) or len(values) != 2:
+                        raise ExtractError(f"offer.checks.{check['name']}.accept.{sku}: needs values [left, right] and decided")
+                    accepted[str(sku)] = tuple(Decimal(str(v)) for v in values)
+                self.compare_checks.append((check, accepted))
             else:
                 raise ExtractError(f"offer.checks.{check['name']}: neither expr nor compare")
 
@@ -403,7 +411,7 @@ class Stager:
             name_clean=self._name_clean(name_raw),
             brand=first(mapping["brand"]),
             supplier_category_raw=self._category(cell, mapping["supplier_category_raw"]),
-            offer=self._offer(cell, sources, issues),
+            offer=self._offer(sku, cell, sources, issues),
             brim=self._brim(cell, capacity.get("brim")),
             brim_cross_check=self._brim_cross_check(cell, capacity.get("brim")),
             line_mark=self._line_mark(sku, name_raw, issues),
@@ -429,7 +437,7 @@ class Stager:
             return None
         return rule["separator"].join(rule["blank"] if is_blank(p) else p for p in parts)
 
-    def _offer(self, cell, sources, issues: list[Issue]) -> StagedOffer | None:
+    def _offer(self, sku: str, cell, sources, issues: list[Issue]) -> StagedOffer | None:
         if sources[self.primary] is None:
             return None
         rule = self.config["offer"]
@@ -447,11 +455,12 @@ class Stager:
             if gap > Decimal(str(check["tolerance"])):
                 raise ExtractError(f"check {check['name']} fails: {check['expr']} is out by {gap}")
 
-        for check in self.compare_checks:
+        for check, accepted in self.compare_checks:
             left, right = check["compare"]
             if is_blank(cell(left)) or is_blank(cell(right)):
                 continue
-            if parse_decimal(cell(left), left) != parse_decimal(cell(right), right):
+            pair = (parse_decimal(cell(left), left), parse_decimal(cell(right), right))
+            if pair[0] != pair[1] and accepted.get(sku) != pair:
                 issues.append(Issue(check["name"], "offer", f"{left} {cell(left)!r}, {right} {cell(right)!r}"))
 
         pack_description = cell(rule["pack_description"]) if rule.get("pack_description") else ""

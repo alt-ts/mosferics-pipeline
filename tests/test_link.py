@@ -468,6 +468,15 @@ def test_a_capacity_mismatch_is_queued_once_and_its_group_is_still_placed(conn):
     assert [tuple(v) for v in values] == [("01", "15cl", Decimal("150.0")), ("03", "1.18L", Decimal("1182.9"))]
 
 
+def test_a_resolved_mismatch_still_in_the_data_is_raised_again(conn):
+    add(conn, "02", "Carafe 25cl", capacity_brim=brim(32))
+    run(conn, config(), dry_run=False)
+    conn.execute(sa.text(
+        "UPDATE ops.review_queue SET status = 'resolved', resolved_by = 'test', resolved_at = now() "
+        "WHERE issue_type = 'capacity_name_mismatch' AND notes LIKE '02:%'"))
+    assert run(conn, config(), dry_run=False)["written"]["review_items"] == 1
+
+
 def test_handles_and_brands_do_not_collide(conn):
     add(conn, "01", "Solo Wine", capacity_brim=brim(32))
     conn.execute(sa.text("UPDATE supplier.supplier_products SET specs = specs || '{\"range\": \"Other\"}' "

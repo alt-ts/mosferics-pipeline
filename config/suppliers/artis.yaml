@@ -107,6 +107,13 @@ offer:
       compare: [price.Pack Size, product.Artis Sales Box Qty (ea)]
       on_fail: review
       on_blank: ignore
+      # Checked by a human: the price file wins. Only these exact values are
+      # accepted; a later file that disagrees differently is raised again.
+      accept:
+        "12-12-305": {values: [6, 12], decided: "Tom Storey, 21 Nov 2026: the price file wins"}
+        "19-21-143": {values: [4, 6], decided: "Tom Storey, 21 Nov 2026: the price file wins"}
+        "31-14-109": {values: [6, 12], decided: "Tom Storey, 21 Nov 2026: the price file wins"}
+        "45-19-150": {values: [10, 6], decided: "Tom Storey, 21 Nov 2026: the price file wins"}
   # Kept in specs for reference; never a cost.
   list_price: price.List Price
 
