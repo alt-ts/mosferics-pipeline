@@ -69,6 +69,23 @@ def summary(c: sa.Connection) -> None:
     for r in c.execute(sa.text("SELECT coalesce(status, 'unreviewed') AS status, count(*) n FROM catalog.images "
                                "GROUP BY 1 ORDER BY 1")):
         print(f"  {r.status:<36} {r.n}")
+    print("\nmeant for the trade store but not ready to publish, and why:")
+    for r in c.execute(sa.text("""
+        SELECT p.title, v.mosferics_sku,
+               concat_ws('; ',
+                   CASE WHEN NOT EXISTS (SELECT 1 FROM catalog.images i WHERE i.product_id = p.product_id
+                                         AND i.status = 'verified') THEN 'no verified image' END,
+                   CASE WHEN coalesce(vp.status, '') NOT IN ('approved', 'auto_approved') THEN 'no live price' END,
+                   CASE WHEN NOT EXISTS (SELECT 1 FROM link.variant_links l WHERE l.variant_id = v.variant_id
+                                         AND l.is_preferred) THEN 'no preferred source' END) AS why
+        FROM ops.channel_publish cp JOIN catalog.variants v USING (variant_id)
+        JOIN catalog.products p USING (product_id)
+        LEFT JOIN pricing.variant_prices vp ON vp.variant_id = v.variant_id AND vp.channel_id = cp.channel_id
+        WHERE cp.publish_status = 'pending'
+          AND NOT EXISTS (SELECT 1 FROM review.ready_to_publish r WHERE r.variant_id = cp.variant_id
+                          AND r.channel_id = cp.channel_id)
+        ORDER BY 1, 2""")):
+        print(f"  {r.title:<26} {r.mosferics_sku}  {r.why}")
     print("\nwaiting for a human in ops.review_queue:")
     for r in c.execute(sa.text("SELECT issue_type, count(*) n FROM ops.review_queue WHERE status = 'open' "
                                "GROUP BY 1 ORDER BY 1")):

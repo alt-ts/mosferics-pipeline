@@ -56,7 +56,19 @@ python -m pipeline.price --report out/demo_prices.csv
 step "review (stand-in): approve the prices"
 python docker/demo_review.py approve-prices
 
+step "publish: mark every product for the trade store (a merchandising decision)"
+python -m pipeline.publish intend --all --apply
+
+step "export: write the products that are ready as a Shopify CSV"
+python -m pipeline.shopify.export --out out/demo_shopify.csv --report out/demo_export_report.csv
+
 step "result"
 python docker/demo_review.py summary
 
-printf '\nReports: out/demo_groups.csv, out/demo_images.csv, out/demo_prices.csv\n'
+cat <<'EOT'
+
+Reports: out/demo_groups.csv, out/demo_images.csv, out/demo_prices.csv,
+         out/demo_shopify.csv (import into a development store), out/demo_export_report.csv
+After a human has imported the CSV and checked it, record it as live:
+    python -m pipeline.publish published --csv out/demo_shopify.csv --apply
+EOT
