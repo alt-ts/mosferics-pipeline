@@ -85,6 +85,9 @@ class LineMarkSegment:
 class LineMark:
     raw: str  # always kept, including when it could not be parsed
     segments: tuple[LineMarkSegment, ...]  # empty when unparsed
+    # The body a human wrote in place of one the parser could not read
+    # (capacity.line_mark.corrections). The segments come from it; raw does not.
+    corrected: str | None = None
 
 
 @dataclass(frozen=True)
@@ -241,6 +244,18 @@ class Stager:
         self.true_value = self.safety.get("true_value", "Y")
         if self.safety.get("blank", "omit") != "omit":
             raise ExtractError(f"safety.blank: {self.safety['blank']!r} is not supported")
+        # A human's choice between contradicting flags, per SKU: flag -> SKUs.
+        self.safety_keep: list[dict[str, str]] = []
+        for contradiction in self.safety.get("contradictions", []):
+            chosen: dict[str, str] = {}
+            for flag, skus in (contradiction.get("keep") or {}).items():
+                if flag not in contradiction["flags"]:
+                    raise ExtractError(f"safety.contradictions.keep: {flag!r} is not one of {contradiction['flags']}")
+                for sku in skus or []:
+                    if sku in chosen:
+                        raise ExtractError(f"safety.contradictions.keep: {sku} is listed under two flags")
+                    chosen[str(sku)] = flag
+            self.safety_keep.append(chosen)
 
         self.size = config.get("size")
         if self.size:
@@ -270,6 +285,14 @@ class Stager:
         self.lm_block = re.compile(rule["block"])
         self.lm_strip = [re.compile(p) for p in rule.get("strip_from_body", [])]
         self.lm_segment = re.compile(rule["segment"])
+        self.lm_corrections: dict[str, str] = {}
+        for sku, correction in (rule.get("corrections") or {}).items():
+            body = (correction or {}).get("body")
+            if not body or not correction.get("decided"):
+                raise ExtractError(f"capacity.line_mark.corrections.{sku}: needs body and decided")
+            if self._line_mark_segments(body) is None:
+                raise ExtractError(f"capacity.line_mark.corrections.{sku}: {body!r} does not parse")
+            self.lm_corrections[str(sku)] = body
 
     def _compile_vocabulary(self, rules: dict, vocabulary_dir: Path) -> None:
         self.vocabulary_rules = rules
@@ -373,8 +396,9 @@ class Stager:
         if sources[self.primary] is None:
             issues.append(Issue("no_price_row", "offer", f"no row in the {self.primary} file, so no offer"))
 
+        sku = first(mapping["supplier_sku"]) or key
         return StagedRow(
-            supplier_sku=first(mapping["supplier_sku"]) or key,
+            supplier_sku=sku,
             name_raw=name_raw,
             name_clean=self._name_clean(name_raw),
             brand=first(mapping["brand"]),
@@ -382,13 +406,13 @@ class Stager:
             offer=self._offer(cell, sources, issues),
             brim=self._brim(cell, capacity.get("brim")),
             brim_cross_check=self._brim_cross_check(cell, capacity.get("brim")),
-            line_mark=self._line_mark(name_raw, issues),
+            line_mark=self._line_mark(sku, name_raw, issues),
             nucleation=self._nucleation(cell, name_raw, capacity.get("nucleation")),
             size=self._size(name_raw),
             vocabulary=vocabulary,
             colour_candidates=colour_candidates,
             colour_status=self.colour_rule["status"] if self.colour_rule else None,
-            safety=self._safety(cell, issues),
+            safety=self._safety(sku, cell, issues),
             specs=specs,
             issues=tuple(issues),
         )
@@ -454,12 +478,17 @@ class Stager:
         cross = rule["cross_check"]
         return self._quantity(cell, cross["source"], cross["unit"], rule.get("zero_is_blank", False))
 
-    def _line_mark(self, name_raw: str, issues: list[Issue]) -> LineMark | None:
+    def _line_mark(self, sku: str, name_raw: str, issues: list[Issue]) -> LineMark | None:
         if not self.line_mark:
             return None
         blocks = list(self.lm_block.finditer(name_raw))
         if not blocks:
+            if sku in self.lm_corrections:
+                raise ExtractError(f"capacity.line_mark.corrections.{sku}: the name has no line mark to correct")
             return None
+        if sku in self.lm_corrections:
+            body = self.lm_corrections[sku]
+            return LineMark(" ".join(b.group(0) for b in blocks), self._line_mark_segments(body), corrected=body)
         raw = blocks[0].group(0)
         segments = self._line_mark_segments(blocks[0].group("body")) if len(blocks) == 1 else None
         if segments is None:
@@ -543,7 +572,7 @@ class Stager:
             issues.append(Issue("colour_ambiguous", "colour", f"{sorted(found)} in {name_raw!r}"))
         return tuple(sorted(found))
 
-    def _safety(self, cell, issues: list[Issue]) -> dict[str, str]:
+    def _safety(self, sku: str, cell, issues: list[Issue]) -> dict[str, str]:
         if not self.safety:
             return {}
         stated = {
@@ -551,10 +580,17 @@ class Stager:
             for flag, source in self.safety["flags"].items()
             if parse_flag(cell(source), self.true_value, source)
         }
-        for contradiction in self.safety.get("contradictions", []):
+        for contradiction, chosen in zip(self.safety.get("contradictions", []), self.safety_keep):
             if contradiction["on_fail"] != "review":
                 raise ExtractError("safety.contradictions: only on_fail review is supported")
             if all(flag in stated for flag in contradiction["flags"]):
+                if sku in chosen:
+                    # A human chose one claim. The other is dropped; the one kept
+                    # is still only a supplier claim, pending_review (hard rule 3).
+                    for flag in contradiction["flags"]:
+                        if flag != chosen[sku]:
+                            del stated[flag]
+                    continue
                 issues.append(Issue("safety_contradiction", "safety", " and ".join(contradiction["flags"])))
         return stated
 

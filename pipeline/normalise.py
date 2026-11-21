@@ -107,8 +107,10 @@ def _quantity(quantity: Quantity) -> dict[str, Any]:
 
 def _line_mark(row: StagedRow) -> dict[str, Any]:
     mark = row.line_mark
+    corrected = {"corrected": mark.corrected} if mark.corrected else {}
     return {
         "raw": mark.raw,
+        **corrected,
         "parsed": bool(mark.segments),
         "segments": [
             {

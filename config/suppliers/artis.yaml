@@ -157,6 +157,18 @@ capacity:
         "0.66": "2/3"
     multiple_values: keep_all        # 33 glasses carry two or three lines
     on_unparsed: review
+    # Marks the parser cannot read, written out by a human in the parser's own
+    # notation. The name's raw mark is still kept; specs record the correction.
+    corrections:
+      "04-12-305":                   # (CE@125m): the unit is cut short
+        body: "CE@125ml"
+        decided: "Tom Storey, 21 Nov 2026"
+      "23-41-446":                   # (CE@0.33,0.5,CE Brim@1pt): first unit missing
+        body: "CE@0.33,0.5pt,CE Brim@1pt"
+        decided: "Tom Storey, 21 Nov 2026: lined at 1/3 and 1/2 pint, 1pt to brim"
+      "77-00-356":                   # (Lined@0.33,0.5.0.66pt): a full stop for a comma
+        body: "Lined@0.33,0.5,0.66pt"
+        decided: "Tom Storey, 21 Nov 2026: lined at 1/3, 1/2 and 2/3 pint; no brim mark, the glass is 40cl"
   nucleation:
     # 5 rows are flagged in the column but not the name, 2 the other way round.
     any_of:
@@ -232,6 +244,11 @@ safety:
   contradictions:
     - flags: [dishwasher_safe, handwash_only]
       on_fail: review
+      # A human chose one claim; the other is dropped. What is kept is still a
+      # supplier claim, pending_review. A SKU not listed here still goes to review.
+      # Tom Storey, 21 Nov 2026: handwash only, the cautious claim.
+      keep:
+        handwash_only: [44-77-111, 44-77-117, 77-00-082, 77-00-083, 77-00-084, 77-00-087, 77-00-355]
 
 # ---------------------------------------------------------------------- specs
 # Everything else worth keeping, into supplier_products.specs (JSONB).
@@ -307,7 +324,19 @@ variant_axes:
       tolerance_pct: 10
       # SKUs a human has checked: the column is right and the name is not.
       # sku: who, when, and why
-      accept: {}
+      accept:
+        "14-00-017": "Tom Storey, 21 Nov 2026: the column is right"
+        "14-91-141": "Tom Storey, 21 Nov 2026: the column is right"
+        "19-21-140": "Tom Storey, 21 Nov 2026: the column is right"
+        "28-54-725": "Tom Storey, 21 Nov 2026: the column is right"
+        "28-59-136": "Tom Storey, 21 Nov 2026: the column is right"
+        "28-59-137": "Tom Storey, 21 Nov 2026: the column is right"
+        "31-54-248": "Tom Storey, 21 Nov 2026: the column is right"
+        "69-00-150": "Tom Storey, 21 Nov 2026: the column is right"
+        "77-00-181": "Tom Storey, 21 Nov 2026: the column is right"
+        # Not 77-00-093 Summit Hi-Ball 29.5cl [10.5oz]: its column says 10.5cl,
+        # the name's oz figure. Tom Storey, 21 Nov 2026: left out of the catalog;
+        # this check keeps it out on every run until Artis corrects the column.
   size:
     value: size
   colour:

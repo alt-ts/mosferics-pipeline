@@ -213,6 +213,32 @@ def test_an_unparseable_line_mark_is_kept_raw_and_goes_to_review(mark):
     assert issue_codes(row) == ["line_mark_unparsed"]
 
 
+def test_a_corrected_mark_is_parsed_from_the_correction_and_keeps_its_raw():
+    sku = "04-12-305"
+    row = stage_one(price=price_row(sku), product=product_row(sku, Description="Teardrop Flute 17cl [6oz] (CE@125m)"))
+    assert row.line_mark.raw == "(CE@125m)"
+    assert row.line_mark.corrected == "CE@125ml"
+    assert list(row.line_mark.segments) == [LineMarkSegment("line", "CE", ("125",), "ml")]
+    assert row.issues == ()
+
+
+def test_a_correction_applies_only_to_its_own_sku():
+    row = stage_one(product=product_row(Description="Teardrop Flute 17cl [6oz] (CE@125m)"))
+    assert row.line_mark.corrected is None
+    assert issue_codes(row) == ["line_mark_unparsed"]
+
+
+@pytest.mark.parametrize("correction, message", [
+    ({"body": "CE@125m", "decided": "a human"}, "does not parse"),
+    ({"body": "CE@125ml"}, "needs body and decided"),
+])
+def test_a_bad_correction_raises(correction, message):
+    config = copy.deepcopy(ARTIS)
+    config["capacity"]["line_mark"]["corrections"] = {"04-12-305": correction}
+    with pytest.raises(ExtractError, match=message):
+        Stager(config)
+
+
 def test_a_name_with_no_mark_has_no_line_mark():
     assert stage_one().line_mark is None
 
@@ -313,6 +339,27 @@ def test_a_safety_value_that_is_neither_y_nor_blank_raises():
 def test_dishwasher_safe_and_handwash_only_together_go_to_review():
     row = stage_one(product=product_row(**{"Dishwasher Safe": "Y", "Handwash Only": "Y"}))
     assert issue_codes(row) == ["safety_contradiction"]
+
+
+def test_a_kept_flag_resolves_the_contradiction_and_stays_pending_review():
+    sku = "77-00-082"  # listed under keep: handwash_only
+    row = stage_one(price=price_row(sku),
+                    product=product_row(sku, **{"Dishwasher Safe": "Y", "Handwash Only": "Y"}))
+    assert row.safety == {"handwash_only": "pending_review"}
+    assert row.issues == ()
+
+
+def test_a_kept_sku_with_one_flag_is_untouched():
+    sku = "77-00-082"
+    row = stage_one(price=price_row(sku), product=product_row(sku, **{"Dishwasher Safe": "Y"}))
+    assert row.safety == {"dishwasher_safe": "pending_review"}  # no contradiction, nothing to choose
+
+
+def test_keep_must_name_a_flag_of_the_contradiction():
+    config = copy.deepcopy(ARTIS)
+    config["safety"]["contradictions"][0]["keep"] = {"oven_safe": ["77-00-082"]}
+    with pytest.raises(ExtractError, match="is not one of"):
+        Stager(config)
 
 
 def test_the_config_cannot_auto_verify_safety_or_materials():

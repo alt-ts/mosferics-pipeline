@@ -217,10 +217,11 @@ def test_the_tolerance_is_measured_against_the_name():
 
 
 def test_an_accepted_sku_is_not_checked():
-    config = copy.deepcopy(ARTIS)
-    config["variant_axes"]["capacity"]["name_check"]["accept"] = {"14-00-017": "checked against the sample"}
+    unchecked, accepted = copy.deepcopy(ARTIS), copy.deepcopy(ARTIS)
+    unchecked["variant_axes"]["capacity"]["name_check"]["accept"] = {}
+    accepted["variant_axes"]["capacity"]["name_check"]["accept"] = {"14-00-017": "checked against the sample"}
     m = member("14-00-017", "Michelangelo Masterpiece Liqueur 7cl [2.5oz]", capacity_brim=brim(23))
-    assert GROUPER.capacity_mismatch(m) and Grouper(config).capacity_mismatch(m) is None
+    assert Grouper(unchecked).capacity_mismatch(m) and Grouper(accepted).capacity_mismatch(m) is None
 
 
 def test_the_name_check_ignores_a_node_without_capacity():
