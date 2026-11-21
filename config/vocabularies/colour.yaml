@@ -217,6 +217,57 @@ bronze:
     - "Bronze"
     - "Gunmetal"
 
+# Two-tone colourways. Each pair is its own colour, not multicolour: a range
+# like Artis 2in1 sells four pairs of the same piece, and as one Multicolour
+# they would have nothing to tell them apart. Matching is longest first, so
+# "Black&White" is taken whole and never reads as black and white. Both word
+# orders are aliased; display keeps the order the supplier uses most.
+# hex is the mid-tone of the two colours' hexes, a placeholder until two-tone
+# swatches are images.
+black_white:
+  display: "Black & White"
+  hex: "#8D8D8D"
+  aliases:
+    - "Black & White"
+    - "Black&White"
+    - "Black/White"
+    - "Black and White"
+    - "White & Black"
+    - "White&Black"
+    - "White/Black"
+
+grey_white:
+  display: "Grey & White"
+  hex: "#C0C0C0"
+  aliases:
+    - "Grey & White"
+    - "Grey&White"
+    - "Grey/White"
+    - "Gray/White"
+    - "White & Grey"
+    - "White/Grey"
+
+brown_black:
+  display: "Brown & Black"
+  hex: "#4B3224"
+  aliases:
+    - "Brown & Black"
+    - "Brown&Black"
+    - "Brown/Black"
+    - "Black & Brown"
+    - "Black/Brown"
+
+beige_grey:
+  display: "Beige & Grey"
+  hex: "#B4AD9B"
+  aliases:
+    - "Beige & Grey"
+    - "Beige&Grey"
+    - "Beige/Grey"
+    - "Beige/Gray"
+    - "Grey & Beige"
+    - "Grey/Beige"
+
 multicolour:
   display: "Multicolour"
   hex: "#BFBFBF"          # neutral placeholder for assorted / patterned items

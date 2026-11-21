@@ -209,6 +209,9 @@ vocabulary:
       # read as natural and grey it was ambiguous, and 18 SKUs lost their colour.
       - Modern Rustic Natural
       - Natural Stone
+      # A part, not the colour: "Cake Stand 3-Tier Mirror Gold + Black Inserts"
+      # is a gold stand.
+      - + Black Inserts
 
 # ------------------------------------------------------------ safety metadata
 # Hard rule 3: every one of these lands as pending_review, source 'supplier'.

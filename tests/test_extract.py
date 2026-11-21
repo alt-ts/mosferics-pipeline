@@ -270,7 +270,9 @@ def test_polywood_handle_moves_out_of_finish_and_into_specs():
     ("Cooler Jug Blue 2.8ltr", ("blue",)),
     ("Cooler Jug blue", ("blue",)),                 # case-insensitive
     ("Bluebell Jug", ()),                           # whole words only
-    ("2in1 Brown/Black Bowl", ("black", "brown")),  # a slash is a word boundary
+    ("2in1 Blue/Red Bowl", ("blue", "red")),        # a slash is a word boundary
+    ("2in1 Brown/Black Bowl", ("brown_black",)),    # a pair is one colour, taken whole
+    ("Nara Black&White Bowl 12cm", ("black_white",)),
     ("Plate Off White", ("white",)),                # the longer alias is the match
     ("Champagne Bucket", ()),                       # ignore_aliases
     ("Annie Red Wine 44cl", ()),                    # ignore_phrases
@@ -280,6 +282,8 @@ def test_polywood_handle_moves_out_of_finish_and_into_specs():
     ("Modern Rustic Natural Grey Plate 28.1cm", ("grey",)),  # a range name, not natural
     ("Modern Rustic Natural Wood Plate 28.1cm", ("natural",)),  # Wood still is
     ("Natural Stone Dip Dish 9cm", ()),
+    ("Cake Stand 3-Tier Mirror Gold + Black Inserts", ("gold",)),  # a part, not the colour
+    ("Acrylic Black Inserts (3 pcs)", ("black",)),  # but the spare inserts are black
 ])
 def test_colour_is_found_in_the_name(name, candidates):
     assert stage_one(product=product_row(Description=name)).colour_candidates == candidates
@@ -290,7 +294,7 @@ def test_colour_is_only_ever_proposed():
 
 
 def test_two_colours_in_one_name_go_to_review():
-    row = stage_one(product=product_row(Description="2in1 Brown/Black Bowl"))
+    row = stage_one(product=product_row(Description="2in1 Blue/Red Bowl"))
     assert issue_codes(row) == ["colour_ambiguous"]
 
 
@@ -399,7 +403,7 @@ def test_a_file_with_no_rows_raises():
 
 def test_summary_counts_fields_and_issues():
     rows = stage_rows(ARTIS, {"price": [price_row("04-21-301"), price_row("75-47-131")],
-                              "product": [product_row("04-21-301", Description="Jug Brown/Black (CE@125,175ml)")]})
+                              "product": [product_row("04-21-301", Description="Jug Blue/Red (CE@125,175ml)")]})
     summary = summarise(rows)
     assert summary["rows"] == 2
     assert summary["with line mark"] == 1
